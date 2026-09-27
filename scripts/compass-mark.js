@@ -1,10 +1,15 @@
 // One geometric source for the vector wordmark, app icon and template tray icon.
+export const strokeWidth = 8;
+const starY = 104;
+// The left tip's stroke touches the crescent's inner circle at the raised crossbar.
+const leftTip = 142 - Math.sqrt(90 ** 2 - (starY - 128) ** 2) + strokeWidth / 2;
 export const paths = [
-  Array.from({ length: 101 }, (_, i) => { const a = (25 + i * 2.7) * Math.PI / 180; return [128 + 96 * Math.cos(a), 128 + 96 * Math.sin(a)]; }),
-  [[128, 36], [145, 128], [128, 220], [111, 128], [128, 36]],
-  [[72, 128], [128, 111], [184, 128], [128, 145], [72, 128]],
+  [[128, 48], [138, 94], [184, starY], [138, 114], [128, 212], [118, 114], [leftTip, starY], [118, 94], [128, 48]],
 ];
-export const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" stroke="black" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">${paths.map(points => `<polyline points="${points.map(p => p.join(',')).join(' ')}"/>`).join('')}</svg>`;
+const tipX = 128 + (96 ** 2 - 90 ** 2 + 14 ** 2) / 28;
+const tipY = 128 - Math.sqrt(96 ** 2 - (tipX - 128) ** 2);
+const crescent = `M ${tipX} ${tipY} A 96 96 0 1 0 ${tipX} ${256-tipY} A 90 90 0 1 1 ${tipX} ${tipY} Z`;
+export const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="${crescent}" fill="black"/><polyline points="${paths[0].map(p => p.join(',')).join(' ')}" fill="none" stroke="black" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 export function drawMark(size, template = false) {
   const out = Buffer.alloc(size * size * 4);
   const segments = paths.flatMap(points => points.slice(1).map((p, i) => [points[i], p]));
@@ -16,7 +21,8 @@ export function drawMark(size, template = false) {
       const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
       distance = Math.min(distance, Math.hypot(px - ax - t * dx, py - ay - t * dy));
     }
-    const coverage = Math.max(0, Math.min(1, (6 - distance) * size / 256 + .5));
+    const moonDistance = Math.min(96 - Math.hypot(px - 128, py - 128), Math.hypot(px - 142, py - 128) - 90);
+    const coverage = Math.max(0, Math.min(1, Math.max(strokeWidth / 2 - distance, moonDistance) * size / 256 + .5));
     const i = (y * size + x) * 4;
     if (template) { out[i+3] = Math.round(255 * coverage); }
     else {
