@@ -33,9 +33,18 @@
     </div>
 
     <div id="ctx-strip" class="ctx-strip hidden"></div>
+    <button id="review-notice" class="ghost hidden"></button>
 
     <div id="status" class="status hidden">
-      <div class="spinner"></div><span id="status-text">分析中…</span>
+      <div class="spinner"></div><span id="status-text" role="status">分析中…</span>
+    </div>
+    <div id="wait-controls" class="hidden">
+      <div class="wait-actions"><span id="elapsed">已等待 0 秒</span><button id="btn-cancel" class="ghost">取消分析</button></div>
+      <details id="snake-panel"><summary>等的时候，玩一局贪吃蛇</summary>
+        <p class="connection-note">开始后使用方向键，空格暂停。离开游戏或结果返回时自动暂停。</p>
+        <canvas id="snake-canvas" width="320" height="160" tabindex="0" aria-label="贪吃蛇游戏区域，方向键移动，空格暂停"></canvas>
+        <div class="wait-actions"><span id="snake-score" role="status">得分 0</span><button id="snake-start" class="ghost">开始 / 重新开始</button></div>
+      </details>
     </div>
     <div id="result"></div>
   </section>
@@ -55,7 +64,7 @@
       <button class="icon-btn back" data-back title="返回分析"><span class="icon" data-icon="arrow-left" aria-hidden="true"></span></button>
       <h2>分析历史</h2>
     </div>
-    <div id="history-list"></div>
+    <div id="later-list"></div><div id="history-list"></div>
   </section>
 
   <section id="view-settings" class="view hidden">
@@ -66,7 +75,7 @@
     <div id="settings-body" class="panel"></div>
   </section>
 
-  <footer class="foot">数据仅存本机 · <span id="foot-dir"></span></footer>
+  <footer class="foot" title="记录保存在本机；分析时输入和项目摘要会发送给所选模型">本机记录 · <span id="foot-dir"></span></footer>
 </div>
 <div id="mobile-notice" class="hidden">
   <div class="mn-box"><b>TechCompass 是桌面小工具</b><br>请在电脑端安装使用：Windows 便携版 / 源码运行</div>

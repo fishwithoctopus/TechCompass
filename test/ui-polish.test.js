@@ -1,0 +1,57 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { JSDOM } from 'jsdom';
+import { startDaemon } from '../lib/server.js';
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function until(fn) { for (let i = 0; i < 160; i++) { if (fn()) return; await sleep(50); } throw new Error('UI wait timeout'); }
+test('desktop UI: navigation, project correction, later list, game focus and cancellation', async t => {
+  const { port, token, stop } = await startDaemon({ dataDir: fs.mkdtempSync(path.join(os.tmpdir(), 'tc-ui-polish-')), port: 0 });
+  t.after(stop);
+  const base = `http://127.0.0.1:${port}`;
+  const dom = new JSDOM(fs.readFileSync(new URL('../ui/index.html', import.meta.url), 'utf8'), { url: `${base}/ui/?token=${token}`, runScripts: 'outside-only', pretendToBeVisual: true });
+  t.after(() => dom.window.close());
+  const w = dom.window, $ = id => w.document.getElementById(id);
+  w.fetch = (p, opts) => fetch(new URL(p, base), opts);
+  w.HTMLCanvasElement.prototype.getContext = () => ({ clearRect() {}, fillRect() {} });
+  const snake = fs.readFileSync(new URL('../ui/snake.js', import.meta.url), 'utf8').replaceAll('export function', 'function');
+  const app = fs.readFileSync(new URL('../ui/app.js', import.meta.url), 'utf8').replace("import { mountSnake } from './snake.js';", '');
+  w.eval(snake + '\n' + app);
+  await until(() => $('ob-folder'));
+  assert.equal($('nav-main').getAttribute('aria-current'), 'page');
+  for (const view of ['history', 'projects', 'settings', 'main']) {
+    $(`nav-${view}`).click();
+    assert.equal(w.document.querySelectorAll('[aria-current="page"]').length, 1);
+    assert.equal($(`nav-${view}`).getAttribute('aria-current'), 'page');
+    await sleep(80);
+  }
+  $('ob-folder').click();
+  $('pf-path').value = path.resolve('test/fixtures/sample-blog'); $('pf-scan').click();
+  await until(() => !$('pf-save').disabled);
+  assert.equal($('pf-goal').closest('details'), null);
+  assert.equal($('pf-focus').closest('details'), null);
+  $('pf-focus').value = '先完善阅读体验'; $('pf-focus').dispatchEvent(new w.Event('input', { bubbles: true }));
+  $('pf-save').click();
+  await until(() => !$('view-main').classList.contains('hidden') && $('ctx-strip').textContent.includes('sample-blog'));
+  $('agent-select').value = 'mock'; $('input').value = 'Tauri'; $('btn-analyze').click();
+  await until(() => w.document.querySelector('.save-later'));
+  const card = w.document.querySelector('.proj-card');
+  assert.equal(card.classList.contains('open'), false);
+  assert.ok(card.querySelector('.decision-reason').textContent.length);
+  card.querySelector('.proj-head').click(); assert.equal(card.querySelector('.proj-head').getAttribute('aria-expanded'), 'true');
+  card.querySelector('.save-later').click();
+  await until(() => card.querySelector('.save-later').textContent.includes('已加入'));
+  $('nav-history').click(); await until(() => $('later-list').textContent.includes('Tauri'));
+  $('nav-main').click(); await sleep(150);
+  $('input').value = 'Bun new cancellation'; $('agent-select').value = 'mock'; $('btn-analyze').click();
+  await until(() => !$('btn-cancel').disabled);
+  $('snake-panel').open = true;
+  $('input').focus(); assert.equal(w.document.activeElement.id, 'input');
+  $('snake-start').click(); assert.equal(w.document.activeElement.id, 'snake-canvas');
+  $('btn-cancel').click();
+  await until(() => $('result').textContent.includes('已取消本次分析'));
+  assert.equal($('snake-panel').open, false);
+  assert.equal($('wait-controls').classList.contains('hidden'), true);
+});

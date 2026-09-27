@@ -78,8 +78,24 @@ code { font-family: var(--mono); font-size: 12px; background: var(--panel-2); bo
 .icon-btn:hover { background: var(--panel-2); color: var(--text); }
 .icon-btn:focus-visible, button:focus-visible, .ctx-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* 新分析：常驻主入口，不在主界面时高亮提示"可以回去" */
-.nav-main { border: 1px solid var(--line-strong); margin-right: 2px; background: var(--panel-2); }
-body:not(.on-main) .nav-main { border-color: var(--accent); color: var(--accent); }
+.top-actions .icon-btn { border: 1px solid transparent; }
+.top-actions .icon-btn[aria-current="page"] { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.ctx-chip[aria-pressed="true"] { color: var(--text); border-color: var(--accent); }
+.proj-head { width: 100%; text-align: left; }
+.decision-reason { padding: 8px 12px; user-select: text; overflow-wrap: anywhere; }
+.proj-card > .action-box, .proj-card > .trigger-box { margin: 4px 12px 10px; }
+.save-later { margin: 0 12px 12px; }
+.wait-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 8px 0; }
+#elapsed { color: var(--dim); font-variant-numeric: tabular-nums; }
+#snake-panel { border-top: 1px solid var(--line); padding: 10px 0; }
+#snake-panel summary { cursor: pointer; color: var(--dim); }
+#snake-canvas { display: block; width: 100%; max-width: 320px; margin: 10px auto; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 6px; }
+#snake-canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.connection-note { color: var(--dim); margin: 8px 0; }
+.later-item { border-bottom: 1px solid var(--line); padding: 12px 0; overflow-wrap: anywhere; }
+.later-item p { margin: 6px 0; color: var(--dim); }
+#later-list h3 { margin-top: 12px; }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 
 /* ---------- 主视图 ---------- */
 #view-main { flex: 1; overflow-y: auto; padding: 10px; }

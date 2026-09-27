@@ -1,6 +1,7 @@
 // ui/app.js — TechCompass 卡片逻辑（无框架、无构建）
 // v0.2.0：常驻「新分析」入口；保存项目后回主界面；表单改为「扫描→摘要确认」流；
 //        MCP 接入界面（只改勾选项，自动备份）；项目来源与更新时间可见。
+import { mountSnake } from './snake.js';
 const $ = (id) => document.getElementById(id);
 const icon = name => `<span class="icon" data-icon="${name}" aria-hidden="true"></span>`;
 
@@ -24,6 +25,7 @@ async function api(path, opts = {}) {
 const S = {
   projects: [], agents: [], settings: {}, mcp: null, image: null, jobTimer: null,
   analysis: null, feedback: {}, editingProjectId: null, activeTerm: 0,
+  busy: false, jobId: null, currentProject: localStorage.getItem('tc_current_project') || '',
   form: { draft: null, dirty: false, source: 'manual' },
 };
 
@@ -62,6 +64,12 @@ function switchView(name) {
     $(v).classList.toggle('hidden', v !== `view-${name}`);
   }
   document.body.classList.toggle('on-main', name === 'main');
+  for (const key of ['main', 'projects', 'history', 'settings']) {
+    const nav = $(`nav-${key}`);
+    if (key === name) nav.setAttribute('aria-current', 'page');
+    else nav.removeAttribute('aria-current');
+  }
+  snake.pause();
   if (name === 'projects') renderProjectList();
   if (name === 'history') renderHistory();
   if (name === 'settings') renderSettings();
@@ -76,7 +84,12 @@ async function refreshMain() {
     $('foot-dir').textContent = st.dataDir;
     renderAgentSelect();
     renderCtxStrip();
-    if (!S.projects.length && !$('result').querySelector('.onboarding')) renderOnboarding();
+    if (!S.projects.length && !S.busy && !S.analysis) renderOnboarding();
+    else if (S.projects.length && $('result').querySelector('.onboarding')) $('result').innerHTML = '<div class="hint-card">项目已准备好。输入技术词、链接或图片，开始第一条判断。</div>';
+    const { items } = await api('/api/later');
+    const count = items.filter(x => x.needsReview && !x.projectMissing).length;
+    $('review-notice').classList.toggle('hidden', !count);
+    $('review-notice').textContent = `${count} 条「以后看」的项目资料已更新，点此复看`;
   } catch (e) {
     $('result').innerHTML = `<div class="error-box">连接失败：${esc(e.message)}</div>`;
   }
@@ -90,46 +103,42 @@ function renderCtxStrip() {
   strip.classList.remove('hidden');
   strip.innerHTML = `
     <span class="ctx-label">结合判断的项目</span>
-    ${active.slice(0, 4).map((p) => `<button class="ctx-chip" data-pid="${esc(p.id)}" title="${esc(p.path)}">${esc(p.context?.name || p.id)}</button>`).join('')}
+    ${active.slice(0, 4).map((p) => `<button class="ctx-chip" aria-pressed="${p.id === S.currentProject}" data-pid="${esc(p.id)}" title="优先展示此项目 · ${esc(p.path)}">${esc(p.context?.name || p.id)}</button>`).join('')}
     ${active.length > 4 ? `<span class="ctx-more">+${active.length - 4}</span>` : ''}
     <button class="ctx-manage" id="ctx-manage">管理</button>`;
   strip.querySelectorAll('.ctx-chip').forEach((c) => {
-    c.onclick = () => switchView('projects');
+    c.onclick = () => { S.currentProject = c.dataset.pid; localStorage.setItem('tc_current_project', S.currentProject); renderCtxStrip(); if (S.analysis) renderAnalysis(S.analysis); toast('该项目的判断将优先展示'); };
   });
   $('ctx-manage').onclick = () => switchView('projects');
 }
 
 // 首次使用引导：两条接入路径（Agent 带入 = 首选；本地文件夹 = 备用）
 function renderOnboarding() {
-  const mcpReady = Object.values(S.mcp?.registrations || {}).some((r) => r.installed);
+  const detected = (S.agents.detected || []).map(id => LABELS.agentName[id]).join('、');
   $('result').innerHTML = `
     <div class="hint-card onboarding">
-      <div class="big">开始之前，接入你的项目</div>
+      <div class="big">让判断和你正在做的事有关</div>
       <div class="ob-row">
-        <div class="ob-no">A</div>
+        <div class="ob-no">1</div>
         <div class="ob-body">
-          <b>从 Agent 带入（推荐）</b>
-          <p>在 Claude Code / Codex 的会话里，对你的项目说一句：<br>
-          <code>把当前项目注册进 techcompass</code></p>
-          <p class="ob-status">${mcpReady ? '✓ MCP 已接入，Agent 可以直接调用' : '还没有接入 MCP →'}</p>
+          <b>确认分析模型</b>
+          <p>${detected ? `已找到 ${esc(detected)}，登录和额度仍需测试。` : '尚未找到本地 CLI，可在设置中添加 API 模型。'}</p>
+          <button class="ghost small" id="ob-model">打开设置并测试连接</button>
         </div>
       </div>
       <div class="ob-row">
-        <div class="ob-no">B</div>
+        <div class="ob-no">2</div>
         <div class="ob-body">
           <b>选择本地文件夹</b>
           <p>TechCompass 读取该目录的 README、依赖清单和 git 记录，生成项目理解后由你确认。</p>
           <button class="primary small" id="ob-folder">选择项目文件夹</button>
         </div>
       </div>
-      <div id="ob-mcp-slot"></div>
+      <p>3 · 确认项目目标和当前重点，然后输入想了解的技术。</p>
+      <p>也可从 Agent 会话注册项目：在设置中展开 MCP 接入。MCP 不是分析模型。</p>
     </div>`;
   $('ob-folder').onclick = () => { switchView('projects'); openProjectForm(null); };
-  if (!mcpReady && S.mcp) {
-    const slot = $('ob-mcp-slot');
-    slot.innerHTML = `<button class="ghost small" id="ob-mcp" style="margin-top:6px">接入 MCP（选择要注册的 Agent）</button>`;
-    $('ob-mcp').onclick = () => renderMcpBlock(slot);
-  }
+  $('ob-model').onclick = () => switchView('settings');
 }
 
 // ---------- MCP 接入块（引导页与设置页共用） ----------
@@ -181,6 +190,8 @@ async function renderMcpBlock(container) {
 
 // ---------- 启动 ----------
 async function boot() {
+  document.body.classList.add('on-main');
+  $('nav-main').setAttribute('aria-current', 'page');
   try {
     await refreshMain();
   } catch (e) {
@@ -241,6 +252,7 @@ document.addEventListener('drop', e => {
 
 // ---------- 分析 ----------
 async function analyze() {
+  if (S.busy) return;
   const text = $('input').value.trim();
   let input;
   if (S.image) input = { type: 'image', value: S.image };
@@ -248,19 +260,31 @@ async function analyze() {
   else { toast('先输入技术词、链接，或选择一张图片'); return; }
 
   const agentId = $('agent-select').value || undefined;
+  S.busy = true; S.jobId = null;
+  const started = Date.now();
+  $('wait-controls').classList.remove('hidden');
+  $('btn-cancel').disabled = true;
+  $('elapsed').textContent = '已等待 0 秒';
+  const elapsedTimer = setInterval(() => { $('elapsed').textContent = `已等待 ${Math.floor((Date.now() - started) / 1000)} 秒`; }, 1000);
   $('btn-analyze').disabled = true;
   $('result').innerHTML = '';
   $('status').classList.remove('hidden');
   $('status-text').textContent = '提交中…';
   try {
     const { jobId } = await api('/api/analyze', { method: 'POST', body: JSON.stringify({ input, agentId }) });
+    S.jobId = jobId; $('btn-cancel').disabled = false;
     const r = await pollJob(jobId, (stage) => { $('status-text').textContent = stage || '分析中…'; });
     // 取完整记录（含项目快照与已有反馈）再渲染
     const full = await api(`/api/analyses/${r.analysisId}`);
     renderAnalysis({ ...full.analysis, cached: r.cached }, full.feedback);
   } catch (e) {
-    showError(e);
+    if (e.message === '分析已取消') $('result').innerHTML = '<div class="hint-card">已取消本次分析。已发生的模型用量可能仍计费。</div>';
+    else showError(e);
   } finally {
+    S.busy = false; S.jobId = null;
+    clearInterval(elapsedTimer); snake.pause();
+    $('snake-panel').open = false;
+    $('wait-controls').classList.add('hidden');
     $('btn-analyze').disabled = false;
     $('status').classList.add('hidden');
   }
@@ -273,6 +297,7 @@ async function pollJob(jobId, onStage) {
         const job = await api(`/api/jobs/${jobId}`);
         onStage?.(job.stage);
         if (job.status === 'done') { resolve(job.result); return; }
+        if (job.status === 'cancelled') { reject(new Error('分析已取消')); return; }
         if (job.status === 'error') { reject(Object.assign(new Error(job.error), { data: { errors: job.errors } })); return; }
         S.jobTimer = setTimeout(tick, 1200);
       } catch (e) { reject(e); }
@@ -284,6 +309,8 @@ async function pollJob(jobId, onStage) {
 function showError(e) {
   const errs = e.data?.errors?.length ? `<ul>${e.data.errors.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
   $('result').innerHTML = `<div class="error-box"><b>分析失败</b>：${esc(e.message)}${errs}</div>`;
+  const retry = document.createElement('button'); retry.className = 'ghost'; retry.textContent = '重试本次输入'; retry.onclick = analyze;
+  $('result').appendChild(retry);
 }
 
 // ---------- 渲染分析结果 ----------
@@ -297,7 +324,7 @@ function renderAnalysis(analysis, feedback = []) {
   S.activeTerm = 0;
   const ctxById = Object.fromEntries((analysis.contextsSnapshot || []).map((c) => [c.projectId, c]));
   const projs = [...result.projects].sort((a, b) =>
-    (REL_ORDER[a.relevance] - REL_ORDER[b.relevance]) || (VERDICT_ORDER[a.verdict] - VERDICT_ORDER[b.verdict]));
+    (Number(b.projectId === S.currentProject) - Number(a.projectId === S.currentProject)) || (VERDICT_ORDER[a.verdict] - VERDICT_ORDER[b.verdict]) || (REL_ORDER[a.relevance] - REL_ORDER[b.relevance]));
 
   const termsHtml = result.terms.length > 1
     ? `<div class="terms" id="terms-tabs">${result.terms.map((t, i) => `<div class="term-tab${i === 0 ? ' active' : ''}" data-i="${i}">${esc(t.term)}</div>`).join('')}</div>` : '';
@@ -307,7 +334,7 @@ function renderAnalysis(analysis, feedback = []) {
       <div class="meta-row">
         <span>${timeago(analysis.createdAt)}</span>
         <span>·</span><span>${esc(LABELS.agentName[analysis.agentUsed] || analysis.agentUsed)}</span>
-        ${analysis.cached ? '<span class="badge-cache">· 24h 内缓存</span>' : ''}
+        ${analysis.cached ? '<span class="badge-cache">· 复用上方时间的结果，未重新调用模型</span>' : ''}
       </div>
       ${analysis.agentUsed === 'mock' ? '<div class="warn-banner">离线演示：不是模型分析，请勿据此决策。</div>' : analysis.fellBack ? '<div class="warn-banner">首选模型未完成，已使用上方标注的备用模型。</div>' : ''}
       ${termsHtml}
@@ -318,6 +345,16 @@ function renderAnalysis(analysis, feedback = []) {
     </div>`;
 
   renderTermDetail();
+  if (analysis.research?.ambiguous) {
+    const choices = document.createElement('div'); choices.className = 'hint-card';
+    choices.innerHTML = `<b>先确认你指的是哪一个</b><p>${esc(analysis.research.summary)}</p>`;
+    for (const term of result.terms) {
+      const button = document.createElement('button'); button.className = 'ghost'; button.textContent = `分析「${term.term}」`;
+      button.onclick = () => { $('input').value = `${term.term}：${term.what}`; clearImage(); analyze(); };
+      choices.appendChild(button);
+    }
+    $('missing-slot').before(choices);
+  }
   if (result.terms.length > 1) {
     $('terms-tabs').addEventListener('click', (e) => {
       const tab = e.target.closest('.term-tab');
@@ -333,7 +370,7 @@ function renderAnalysis(analysis, feedback = []) {
     list.innerHTML = `<div class="hint-card">还没有关联项目，判断无法结合你的实际情况。<br><button class="primary small" style="margin-top:8px" onclick="document.getElementById('nav-projects').click()">去关联项目</button></div>`;
     return;
   }
-  projs.forEach((p, i) => list.appendChild(projCard(p, ctxById[p.projectId], i === 0)));
+  projs.forEach((p) => list.appendChild(projCard(p, ctxById[p.projectId], false)));
 }
 
 function renderTermDetail() {
@@ -379,24 +416,31 @@ function projCard(p, ctx, expanded) {
   const ctxMeta = ctx?.updatedAt ? `<span class="ctx-meta">理解更新于 ${timeago(ctx.updatedAt)}</span>` : '';
 
   el.innerHTML = `
-    <div class="proj-head">
+    <button class="proj-head" aria-expanded="${expanded}">
       <div class="proj-head-main">
         <span class="proj-name">${esc(name)}</span>
         <span class="b b-rel-${p.relevance}">${LABELS.relevance[p.relevance]}</span>
         <span class="b b-${p.verdict}">${LABELS.verdict[p.verdict]}</span>
       </div>
       <span class="chev">${icon('chevron-right')}</span>
-    </div>
+    </button>
     ${ctxMeta}
+    <p class="decision-reason">${esc(p.reasoning)}</p>
+    ${p.tryAction ? `<div class="action-box"><b>最小验证</b>：${esc(p.tryAction)}</div>` : ''}
+    ${p.futureTrigger ? `<div class="trigger-box"><b>什么时候再看</b>：${esc(p.futureTrigger)}</div><button class="ghost save-later">加入以后看</button>` : ''}
     <div class="proj-body">
-      <div class="sec"><div class="sec-title">为什么</div><p>${esc(p.reasoning)}</p></div>
       <div class="sec"><div class="sec-title">它在项目里的位置</div><p>${esc(role.fit || '—')}</p>${roleRows.join('')}</div>
-      ${p.tryAction ? `<div class="action-box">${icon('square-pen')} <b>验证动作</b>：${esc(p.tryAction)}</div>` : ''}
-      ${p.futureTrigger ? `<div class="trigger-box">${icon('telescope')} <b>什么时候再看它</b>：${esc(p.futureTrigger)}</div>` : ''}
 
     </div>`;
 
-  el.querySelector('.proj-head').onclick = () => el.classList.toggle('open');
+  el.querySelector('.proj-head').onclick = e => { const open = el.classList.toggle('open'); e.currentTarget.setAttribute('aria-expanded', String(open)); };
+  const analysisId = S.analysis.id;
+  const save = el.querySelector('.save-later');
+  if (save) save.onclick = async () => {
+    save.disabled = true;
+    try { await api('/api/later', { method: 'POST', body: JSON.stringify({ analysisId, projectId: p.projectId }) }); save.textContent = '已加入 · 在历史中查看'; }
+    catch(e) { save.disabled = false; toast(e.message); }
+  };
   return el;
 }
 
@@ -423,6 +467,7 @@ function renderProjectList() {
         </div>
         <div class="ppath">${esc(p.path)}</div>
         ${c?.goal ? `<div class="pgoal">${esc(c.goal)}</div>` : ''}
+        <div class="pgoal">当前重点：${esc(c?.focus || '尚未确认，建议补充')}</div>
         <div class="ptags">${(c?.stack || []).map((s) => `<span class="tag">${esc(s)}</span>`).join('')}</div>
         <div class="pactions">
           <button class="ghost" data-act="edit">查看 / 纠正</button>
@@ -463,17 +508,15 @@ function projFormShell() {
     <div class="pf-step">
       <div class="pf-step-title">2 · 确认理解</div>
       <div id="pf-summary" class="pf-summary"><div class="sum-empty">选好文件夹后，这里会给出 TechCompass 对项目的理解，由你确认或纠正。</div></div>
+      <div class="field"><label for="pf-goal">项目目标（一句话）</label><textarea id="pf-goal"></textarea></div>
+      <div class="field"><label for="pf-focus">你现在最想推进什么？</label><textarea id="pf-focus" placeholder="例如：先验证核心流程，暂不迁移技术栈"></textarea></div>
+      <div class="field"><label for="pf-stage">当前阶段</label><select id="pf-stage">${Object.entries(LABELS.stage).map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}</select></div>
       <details id="pf-details" class="pf-details">
         <summary>手动调整全部字段（可选，默认已折叠）</summary>
         <div class="pf-fields">
           <div class="field"><label>项目名</label><input type="text" id="pf-name"></div>
-          <div class="field"><label>项目目标（一句话）</label><textarea id="pf-goal"></textarea></div>
-          <div class="field"><label>阶段</label>
-            <select id="pf-stage">${Object.entries(LABELS.stage).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>
-          </div>
           <div class="field"><label>技术栈（逗号分隔）</label><input type="text" id="pf-stack"></div>
           <div class="field"><label>关键依赖（每行一个，可写「名字：干嘛的」）</label><textarea id="pf-deps"></textarea></div>
-          <div class="field"><label>当前在做什么（可空）</label><textarea id="pf-focus"></textarea></div>
           <div class="field"><label>约束（每行一条，可空）</label><textarea id="pf-cons"></textarea></div>
         </div>
       </details>
@@ -521,7 +564,8 @@ function renderSummary(d) {
     <div class="sum-row"><span class="sum-k">阶段</span><span>${LABELS.stage[d.stage] || d.stage}${inferred ? ' <span class="tag inf-tag">推断</span>' : ''}</span></div>
     ${d.stack?.length ? `<div class="sum-row"><span class="sum-k">技术栈</span><span class="sum-chips">${d.stack.slice(0, 8).map((s) => `<span class="tag">${esc(s)}</span>`).join('')}</span></div>` : ''}
     ${d.keyDeps?.length ? `<div class="sum-row"><span class="sum-k">依赖</span><span>${d.keyDeps.slice(0, 6).map((x) => esc(x.name)).join('、')}${d.keyDeps.length > 6 ? ` 等 ${d.keyDeps.length} 个` : ''}</span></div>` : ''}
-    <div class="sum-src">${esc(srcTxt)} · 不对就点「手动调整」纠正</div>`;
+    ${d.focus ? `<div class="sum-row"><span class="sum-k">当前重点</span><span>${esc(d.focus)}</span></div>` : ''}
+    <div class="sum-src">${esc(srcTxt)}${d.updatedAt ? ` · 更新于 ${esc(new Date(d.updatedAt).toLocaleString())}` : ''} · 请在下方确认目标与当前重点</div>`;
 }
 
 function openProjectForm(project = null) {
@@ -569,11 +613,11 @@ function openProjectForm(project = null) {
   if (project?.context) acceptDraft(project.context, '当前保存的理解，可直接确认或调整');
 
   // 手动调整 = 用户改字段 → 来源转 manual
-  $('pf-details').addEventListener('input', () => {
+  form.addEventListener('input', () => {
     S.form.dirty = true;
     renderSummary({ ...readProjFields(), source: 'manual', updatedAt: project?.context?.updatedAt });
   });
-  $('pf-details').addEventListener('change', () => {
+  form.addEventListener('change', () => {
     S.form.dirty = true;
     renderSummary({ ...readProjFields(), source: 'manual', updatedAt: project?.context?.updatedAt });
   });
@@ -627,7 +671,25 @@ async function refreshProject(p) {
 }
 
 // ---------- 历史视图 ----------
+async function renderDeferred() {
+  const list = $('later-list');
+  try {
+    const { items } = await api('/api/later');
+    list.innerHTML = '<h3>以后看</h3><p class="connection-note">按触发条件留待需要时再看，不自动监控项目。</p>';
+    if (!items.length) list.innerHTML += '<p class="connection-note">在分析结果中点「加入以后看」，即可保留技术与项目的对应关系。</p>';
+    for (const item of items.slice().reverse()) {
+      const el = document.createElement('div'); el.className = 'later-item';
+      el.innerHTML = `<b>${esc(item.term)}</b><p>${esc(item.projectName)}${item.projectMissing ? ' · 项目已移除' : item.needsReview ? ' · 项目资料已更新，建议复看（不代表条件已满足）' : ''}</p><p>${esc(item.futureTrigger)}</p><button class="ghost later-open">查看原判断</button> <button class="ghost later-remove">移出清单</button>`;
+      el.querySelector('.later-open').onclick = async () => { try { const full = await api(`/api/analyses/${item.analysisId}`); switchView('main'); renderAnalysis(full.analysis); } catch(e) { toast(e.message); } };
+      el.querySelector('.later-remove').onclick = async () => { try { await api('/api/later', { method: 'DELETE', body: JSON.stringify({ id: item.id }) }); await renderDeferred(); } catch(e) { toast(e.message); } };
+      list.appendChild(el);
+    }
+    list.insertAdjacentHTML('beforeend', '<h3>全部分析</h3>');
+  } catch(e) { list.textContent = `清单读取失败：${e.message}`; }
+}
+
 async function renderHistory() {
+  await renderDeferred();
   const { analyses } = await api('/api/analyses?limit=30');
   const list = $('history-list');
   if (!analyses.length) {
@@ -666,6 +728,8 @@ async function renderSettings() {
       </select>
     </div>
     <div class="settings-row"><span class="sk">已检测到的 Agent</span><span class="sv">${esc(detected)}</span></div>
+    <p class="connection-note">找到程序 ≠ 已登录可用。下面发送一条最小测试，不含项目内容，可能使用少量额度；不验证联网搜索。</p>
+    <button class="ghost" id="cli-test">测试所选模型响应</button><p id="cli-status" role="status"></p>
     <div class="settings-row"><span class="sk">数据目录</span><span class="sv">${esc(st.dataDir)}</span></div>
     <div class="settings-row"><span class="sk">版本</span><span class="sv">TechCompass v${esc(st.version)}</span></div>
     <div class="settings-row"><span class="sk">分析总数</span><span class="sv">${st.analysesCount}</span></div>
@@ -690,6 +754,14 @@ async function renderSettings() {
       项目来源与分析模型是两回事：MCP 同步 Agent 提供的项目摘要；本地 CLI 或 API 负责本次分析。不会自动读取所有会话。自动模式只尝试真实模型，不会降级为演示。CLI 使用原账号额度，并非免费。
     </div>`;
   const sel = $('set-agent');
+  $('cli-test').onclick = async e => {
+    e.currentTarget.disabled = true; $('cli-status').textContent = '测试中…';
+    try {
+      const { jobId } = await api('/api/agent/test', { method: 'POST', body: JSON.stringify({ agentId: sel.value }) });
+      await pollJob(jobId); $('cli-status').textContent = '本次响应成功。联网搜索在实际分析时另行验证。';
+    } catch(e) { $('cli-status').textContent = `${e.message}。请检查对应 CLI 的登录/额度，或配置 API。`; }
+    finally { if ($('cli-test')) $('cli-test').disabled = false; }
+  };
   sel.value = st.agents.preferred[0] || 'codex';
   sel.onchange = async () => {
     const order = sel.value === 'api' ? ['api'] : sel.value === 'codex' ? ['codex', 'claude'] : ['claude', 'codex'];
@@ -723,6 +795,17 @@ async function renderSettings() {
 }
 
 // ---------- 事件绑定 ----------
+const snake = mountSnake($('snake-canvas'), $('snake-score'));
+$('snake-start').onclick = () => { if (S.busy) snake.start(); };
+$('snake-panel').ontoggle = () => { if (!$('snake-panel').open) snake.pause(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) snake.pause(); });
+$('review-notice').onclick = () => switchView('history');
+$('btn-cancel').onclick = async () => {
+  if (!S.jobId) return;
+  $('btn-cancel').disabled = true;
+  try { await api(`/api/jobs/${S.jobId}/cancel`, { method: 'POST', body: '{}' }); }
+  catch(e) { toast(`取消未确认：${e.message}`); $('btn-cancel').disabled = false; }
+};
 $('btn-analyze').onclick = analyze;
 $('input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); analyze(); }
@@ -737,6 +820,7 @@ $('btn-add-project').onclick = () => openProjectForm(null);
 $('btn-collapse').onclick = toggleCollapse;
 
 function toggleCollapse() {
+  snake.pause();
   document.body.classList.toggle('collapsed');
   const collapsed = document.body.classList.contains('collapsed');
   $('btn-collapse').innerHTML = icon(collapsed ? 'plus' : 'minus');
