@@ -467,7 +467,7 @@ function renderProjectList() {
     S.projects = projects;
     const list = $('project-list');
     if (!projects.length) {
-      list.innerHTML = '<div class="hint-card">还没有关联项目。点右上角「＋ 关联项目」，或在 Agent 会话里说「把当前项目注册进 techcompass」。</div>';
+      list.innerHTML = '<p class="project-empty">还没有项目。用上面的会话指令注册，或从本地文件夹关联；不需要从空白表单开始。</p>';
       return;
     }
     list.innerHTML = '';
@@ -482,7 +482,7 @@ function renderProjectList() {
           ${c ? `<span class="tag stage-tag">${LABELS.stage[c.stage] || c.stage}</span>` : ''}
           ${srcLabel ? `<span class="src-note">${esc(srcLabel)}</span>` : ''}
         </div>
-        <div class="ppath">${esc(p.path)}</div>
+        <div class="ppath" title="${esc(p.path)}">${esc(p.path)}</div>
         ${c?.goal ? `<div class="pgoal">${esc(c.goal)}</div>` : ''}
         <div class="pgoal">当前重点：${esc(c?.focus || '尚未确认，建议补充')}</div>
         <div class="ptags">${(c?.stack || []).map((s) => `<span class="tag">${esc(s)}</span>`).join('')}</div>
@@ -490,7 +490,7 @@ function renderProjectList() {
           <button class="ghost" data-act="edit">查看 / 纠正</button>
           <button class="ghost" data-act="refresh">重新提炼</button>
           <button class="ghost" data-act="toggle">${p.enabled === false ? '加入分析' : '暂停参与分析'}</button>
-          <button class="ghost" data-act="del">删除</button>
+          <button class="ghost danger-text" data-act="del">移除关联</button>
         </div>`;
       el.querySelector('[data-act=edit]').onclick = () => openProjectForm(p);
       el.querySelector('[data-act=refresh]').onclick = () => refreshProject(p);
@@ -503,46 +503,48 @@ function renderProjectList() {
         } catch(e) { toast(e.message); }
       };
       el.querySelector('[data-act=del]').onclick = async () => {
-        if (!confirm(`删除项目「${c?.name || p.path}」？分析历史会保留。`)) return;
+        if (!confirm(`移除「${c?.name || p.path}」的关联？不会删除本地项目文件，分析历史也会保留。`)) return;
         await api(`/api/projects/${p.id}`, { method: 'DELETE' });
         renderProjectList(); toast('已删除');
       };
       list.appendChild(el);
     }
-  });
+  }).catch(e => { $('project-list').textContent = `项目读取失败：${e.message}。请点击「刷新列表」重试。`; });
 }
 
 // ---------- 项目表单：扫描 → 摘要确认流 ----------
 function projFormShell() {
   return `
     <div class="pf-step">
-      <div class="pf-step-title">1 · 选择项目文件夹</div>
+      <h3 class="pf-step-title">${S.editingProjectId ? '查看与纠正项目理解' : '从本地文件夹关联'}</h3>
+      <p class="scan-note">${S.editingProjectId ? '只修改这份项目摘要，不会修改你的项目文件。' : '先选目录，自动生成摘要；你只需确认或纠正，不用逐项手填。'}</p>
       ${HAS_ELECTRON
         ? `<button class="primary" id="pf-pick">选择文件夹…</button>`
-        : `<div class="path-row"><input type="text" id="pf-path" placeholder="项目绝对路径，如 D:\\code\\my-app"><button class="ghost" id="pf-scan">扫描</button></div>`}
+        : `<div class="path-row"><input type="text" id="pf-path" aria-label="本地项目文件夹路径" placeholder="项目绝对路径，如 D:\\code\\my-app"><button class="ghost" id="pf-scan">扫描</button></div>`}
       <div class="scan-note" id="pf-note">只读取所选目录内的 README、依赖清单、目录结构和 git log，不访问其他位置</div>
     </div>
-    <div class="pf-step">
+    <div class="pf-step hidden" id="pf-confirm-step">
       <div class="pf-step-title">2 · 确认理解</div>
       <div id="pf-summary" class="pf-summary"><div class="sum-empty">选好文件夹后，这里会给出 TechCompass 对项目的理解，由你确认或纠正。</div></div>
       <div class="field"><label for="pf-goal">项目目标（一句话）</label><textarea id="pf-goal"></textarea></div>
       <div class="field"><label for="pf-focus">你现在最想推进什么？</label><textarea id="pf-focus" placeholder="例如：先验证核心流程，暂不迁移技术栈"></textarea></div>
       <div class="field"><label for="pf-stage">当前阶段</label><select id="pf-stage">${Object.entries(LABELS.stage).map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}</select></div>
       <details id="pf-details" class="pf-details">
-        <summary>手动调整全部字段（可选，默认已折叠）</summary>
+        <summary>更多项目资料（可选）</summary>
         <div class="pf-fields">
-          <div class="field"><label>项目名</label><input type="text" id="pf-name"></div>
-          <div class="field"><label>技术栈（逗号分隔）</label><input type="text" id="pf-stack"></div>
-          <div class="field"><label>关键依赖（每行一个，可写「名字：干嘛的」）</label><textarea id="pf-deps"></textarea></div>
-          <div class="field"><label>约束（每行一条，可空）</label><textarea id="pf-cons"></textarea></div>
+          <div class="field"><label for="pf-name">项目名</label><input type="text" id="pf-name"></div>
+          <div class="field"><label for="pf-stack">技术栈（逗号分隔）</label><input type="text" id="pf-stack"></div>
+          <div class="field"><label for="pf-deps">关键依赖（每行一个）</label><textarea id="pf-deps"></textarea></div>
+          <div class="field"><label for="pf-cons">项目约束（可选，每行一条）</label><textarea id="pf-cons"></textarea></div>
         </div>
       </details>
+    </div>
       <div class="form-actions">
         <button class="primary" id="pf-save" disabled>确认并保存</button>
         <button class="ghost" id="pf-enhance" disabled>让 AI 提炼得更准</button>
         <button class="ghost" id="pf-cancel">取消</button>
       </div>
-    </div>`;
+    `;
 }
 
 function fillProjFields(d) {
@@ -590,6 +592,7 @@ function openProjectForm(project = null) {
   S.form = { draft: null, dirty: false, source: 'manual' };
   const form = $('project-form');
   form.classList.remove('hidden');
+  $('view-projects').classList.add('editing-project');
   form.innerHTML = projFormShell();
   form.scrollIntoView?.({ behavior: 'smooth' });
 
@@ -617,6 +620,7 @@ function openProjectForm(project = null) {
   }
 
   function acceptDraft(draft, note) {
+    $('pf-confirm-step').classList.remove('hidden');
     S.form.draft = draft; S.form.dirty = false; S.form.source = draft.source || 'scan';
     if (S.editingProjectId) S.form.path = S.form.path || project.path;
     fillProjFields(draft);
@@ -630,14 +634,14 @@ function openProjectForm(project = null) {
   if (project?.context) acceptDraft(project.context, '当前保存的理解，可直接确认或调整');
 
   // 手动调整 = 用户改字段 → 来源转 manual
-  form.addEventListener('input', () => {
+  form.oninput = () => {
     S.form.dirty = true;
     renderSummary({ ...readProjFields(), source: 'manual', updatedAt: project?.context?.updatedAt });
-  });
-  form.addEventListener('change', () => {
+  };
+  form.onchange = () => {
     S.form.dirty = true;
     renderSummary({ ...readProjFields(), source: 'manual', updatedAt: project?.context?.updatedAt });
-  });
+  };
 
   $('pf-enhance').onclick = async () => {
     const path = S.form.path || S.projects.find((p) => p.id === S.editingProjectId)?.path;
@@ -652,7 +656,7 @@ function openProjectForm(project = null) {
     $('pf-enhance').disabled = false;
   };
 
-  $('pf-cancel').onclick = () => { form.classList.add('hidden'); S.editingProjectId = null; };
+  $('pf-cancel').onclick = () => { form.classList.add('hidden'); $('view-projects').classList.remove('editing-project'); S.editingProjectId = null; };
   $('pf-save').onclick = async () => {
     const path = S.form.path || S.projects.find((p) => p.id === S.editingProjectId)?.path;
     if (!path) { toast('先选择项目文件夹'); return; }
@@ -667,6 +671,7 @@ function openProjectForm(project = null) {
         await api('/api/projects', { method: 'POST', body: JSON.stringify({ path, context: { ...context, source } }) });
       }
       form.classList.add('hidden'); S.editingProjectId = null;
+      $('view-projects').classList.remove('editing-project');
       const wasFirst = !S.projects.length;
       await refreshMain();
       switchView('main');
@@ -835,6 +840,12 @@ $('nav-settings').onclick = () => switchView('settings');
 window.addEventListener('focus', () => { if (!$('view-main').classList.contains('hidden')) refreshMain(); });
 document.querySelectorAll('[data-back]').forEach((b) => { b.onclick = () => switchView('main'); });
 $('btn-add-project').onclick = () => openProjectForm(null);
+$('project-mcp-settings').onclick = () => switchView('settings');
+$('project-refresh-list').onclick = () => renderProjectList();
+$('copy-register-command').onclick = async () => {
+  try { await navigator.clipboard.writeText($('agent-register-command').textContent); toast('已复制，请粘贴到打开项目的 Agent 会话'); }
+  catch { toast('无法自动复制，请选中上方指令后复制'); }
+};
 $('btn-collapse').onclick = toggleCollapse;
 
 function toggleCollapse() {

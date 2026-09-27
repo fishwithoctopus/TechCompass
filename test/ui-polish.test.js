@@ -12,7 +12,7 @@ test('desktop UI: navigation, project correction, later list, game focus and can
   t.after(stop);
   const base = `http://127.0.0.1:${port}`;
   const dom = new JSDOM(fs.readFileSync(new URL('../ui/index.html', import.meta.url), 'utf8'), { url: `${base}/ui/?token=${token}`, runScripts: 'outside-only', pretendToBeVisual: true });
-  t.after(() => dom.window.close());
+  t.after(() => { dom.window.document.getElementById('snake-panel').ontoggle = null; dom.window.close(); });
   const w = dom.window, $ = id => w.document.getElementById(id);
   w.fetch = (p, opts) => fetch(new URL(p, base), opts);
   w.HTMLCanvasElement.prototype.getContext = () => ({ clearRect() {}, fillRect() {} });
@@ -32,7 +32,18 @@ test('desktop UI: navigation, project correction, later list, game focus and can
   assert.ok($('term-detail').textContent.includes('JavaScript 工具链'));
   $('result-add-project').click();
   assert.equal($('project-form').classList.contains('hidden'), false);
+  assert.equal($('pf-confirm-step').classList.contains('hidden'), true);
+  assert.equal($('pf-cancel').disabled, false);
+  assert.equal($('view-projects').classList.contains('editing-project'), true);
   $('pf-cancel').click();
+  assert.equal($('view-projects').classList.contains('editing-project'), false);
+  assert.ok($('project-access').textContent.includes('把当前项目注册进 techcompass'));
+  assert.ok($('btn-add-project').textContent.includes('从文件夹关联'));
+  let copied = '';
+  Object.defineProperty(w.navigator, 'clipboard', { value: { writeText: async text => { copied = text; } } });
+  $('copy-register-command').click();
+  await until(() => copied.length > 0);
+  assert.equal(copied, '把当前项目注册进 techcompass');
   w.eval('renderOnboarding(); switchView("main");');
   await until(() => $('ob-folder'));
   assert.equal($('nav-main').getAttribute('aria-current'), 'page');
@@ -45,6 +56,7 @@ test('desktop UI: navigation, project correction, later list, game focus and can
   $('ob-folder').click();
   $('pf-path').value = path.resolve('test/fixtures/sample-blog'); $('pf-scan').click();
   await until(() => !$('pf-save').disabled);
+  assert.equal($('pf-confirm-step').classList.contains('hidden'), false);
   assert.equal($('pf-goal').closest('details'), null);
   assert.equal($('pf-focus').closest('details'), null);
   $('pf-focus').value = '先完善阅读体验'; $('pf-focus').dispatchEvent(new w.Event('input', { bubbles: true }));
