@@ -19,6 +19,14 @@ test('desktop UI: navigation, project correction, later list, game focus and can
   const snake = fs.readFileSync(new URL('../ui/snake.js', import.meta.url), 'utf8').replaceAll('export function', 'function');
   const app = fs.readFileSync(new URL('../ui/app.js', import.meta.url), 'utf8').replace("import { mountSnake } from './snake.js';", '');
   w.eval(snake + '\n' + app);
+  assert.equal(w.eval(`groupHistory([
+    {id:'a',input:{type:'text',value:' Bun '}},
+    {id:'b',input:{type:'text',value:'bun'}},
+    {id:'c',input:{type:'text',value:'Bun 2'}},
+    {id:'d',input:{type:'image',value:'same'}},
+    {id:'e',input:{type:'image',value:'same'}}
+  ]).length`), 4);
+  assert.equal(w.eval(`groupHistory([{id:'a',input:{type:'link',value:'https://example.com/A'}},{id:'b',input:{type:'link',value:'https://example.com/a'}}]).length`), 2);
   await until(() => $('ob-folder'));
   // Legacy records must not continue showing low/ignore after this UI update.
   const unknown = { id: 'legacy-unknown', contextsSnapshot: [{ projectId: 'p', name: '测试项目' }], research: { status: 'no_results', ambiguous: true, sources: [] }, result: { terms: [{ term: '虚构词', what: '无法确认', solves: '未知' }], projects: [{ projectId: 'p', relevance: 'low', verdict: 'ignore' }], missing: ['请补充链接'] } };
@@ -62,6 +70,20 @@ test('desktop UI: navigation, project correction, later list, game focus and can
   $('pf-focus').value = '先完善阅读体验'; $('pf-focus').dispatchEvent(new w.Event('input', { bubbles: true }));
   $('pf-save').click();
   await until(() => !$('view-main').classList.contains('hidden') && $('ctx-strip').textContent.includes('sample-blog'));
+  $('nav-projects').click();
+  await until(() => w.document.querySelector('details.proj-item'));
+  const projectCard = w.document.querySelector('details.proj-item');
+  assert.equal(projectCard.open, false);
+  projectCard.open = true;
+  assert.ok(projectCard.querySelector('[data-act=edit]'));
+  $('nav-settings').click();
+  await until(() => $('mcp-slot').querySelector('#mcp-copy-json'));
+  $('mcp-slot').querySelector('#mcp-copy-json').click();
+  await until(() => copied.includes('mcpServers'));
+  assert.ok(JSON.parse(copied).mcpServers.techcompass.command);
+  assert.equal(copied.includes('x-tc-token'), false);
+  $('nav-main').click();
+  await sleep(100);
   $('agent-select').value = 'mock'; $('input').value = 'Tauri'; $('btn-analyze').click();
   await until(() => w.document.querySelector('.save-later'));
   const card = w.document.querySelector('.proj-card');
@@ -71,6 +93,9 @@ test('desktop UI: navigation, project correction, later list, game focus and can
   card.querySelector('.save-later').click();
   await until(() => card.querySelector('.save-later').textContent.includes('已加入'));
   $('nav-history').click(); await until(() => $('later-list').textContent.includes('Tauri'));
+  await until(() => w.document.querySelector('details.hist-item'));
+  assert.equal(w.document.querySelector('details.hist-item').open, false);
+  assert.ok(w.document.querySelector('.history-version'));
   $('nav-main').click(); await sleep(150);
   $('input').value = 'Bun new cancellation'; $('agent-select').value = 'mock'; $('btn-analyze').click();
   await until(() => !$('btn-cancel').disabled);

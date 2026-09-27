@@ -55,14 +55,14 @@
       <h2>项目</h2>
       <button id="btn-add-project" class="ghost small"><span class="icon" data-icon="folder" aria-hidden="true"></span> 从文件夹关联</button>
     </div>
-    <div id="project-access" class="project-access">
-      <h3>正在 Agent 里做项目？直接让它带进来</h3>
+    <details id="project-access" class="project-access" open>
+      <summary>从 Agent 会话带入项目 <span class="connection-note">查看方法</span></summary>
       <p>在已打开项目的 Codex 或 Claude Code 会话中发送：</p>
       <div class="register-command"><code id="agent-register-command">把当前项目注册进 techcompass</code><button class="ghost" id="copy-register-command">复制</button></div>
       <p class="project-access-note">需先在设置里接入 MCP，并重启对应 Agent。它会整理当前项目上下文，注册后可在这里查看和纠正，无需重新手填。</p>
       <div class="project-access-actions"><button class="ghost" id="project-mcp-settings">查看 MCP 接入</button><button class="ghost" id="project-refresh-list">已注册，刷新列表</button></div>
       <p class="folder-alternative">不通过 Agent？右上角「从文件夹关联」会扫描本地项目，再由你确认摘要。</p>
-    </div>
+    </details>
     <div id="project-form" class="panel form hidden"></div>
     <h3 id="project-list-heading" class="project-list-heading">已关联项目</h3>
     <div id="project-list"></div>

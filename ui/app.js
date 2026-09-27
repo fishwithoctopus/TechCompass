@@ -163,12 +163,30 @@ async function renderMcpBlock(container) {
       <button class="primary small" id="mcp-do-register">注册</button>
       <p class="mcp-note">注册后在 Agent 会话里说「把当前项目注册进 techcompass」，项目就会同步到这张卡片。重启对应 Agent 后生效。</p>
       <div class="mcp-result" id="mcp-result"></div>
+      <details class="mcp-export"><summary>其他 Agent：复制接入配置</summary>
+        <p class="mcp-note">适用于这台电脑上支持 stdio MCP 的客户端。不是网页链接；不同 Agent 的配置格式可能不同。复制不会修改任何配置。</p>
+        <button class="ghost" id="mcp-copy-guide">复制给 Agent 的接入说明</button>
+        <button class="ghost" id="mcp-copy-json">复制 JSON 配置</button>
+        <pre id="mcp-export-preview"></pre>
+      </details>
     </div>`;
-  $('mcp-do-register').onclick = async (e) => {
+  const copyMcp = async (guide) => {
+    try {
+      const { mcp } = await api('/api/state');
+      const config = JSON.stringify({ mcpServers: { techcompass: mcp.entry } }, null, 2);
+      const text = guide ? `请帮我在当前客户端接入本机 TechCompass 的 stdio MCP。先确认客户端支持本地 MCP；以下是这台电脑的启动配置，请转换为客户端要求的格式，不要覆盖其他服务。修改前备份并校验，路径不存在时停止并询问我，不要猜测替代路径。完成后验证 MCP 握手与工具列表，再告诉我是否需要重启。不要自动注册或上传项目。\n\n${config}` : config;
+      container.querySelector('#mcp-export-preview').textContent = text;
+      await navigator.clipboard.writeText(text);
+      toast('已复制；交给目标 Agent 确认接入');
+    } catch (e) { toast('复制失败；如配置已显示，可选中文字手动复制'); }
+  };
+  container.querySelector('#mcp-copy-guide').onclick = () => copyMcp(true);
+  container.querySelector('#mcp-copy-json').onclick = () => copyMcp(false);
+  container.querySelector('#mcp-do-register').onclick = async (e) => {
     const agents = [...container.querySelectorAll('.mcp-item input:checked')].map((i) => i.value);
     if (!agents.length) { toast('先勾选至少一个 Agent'); return; }
     e.target.disabled = true; e.target.textContent = '注册中…';
-    $('mcp-result').innerHTML = '';
+    container.querySelector('#mcp-result').innerHTML = '';
     try {
       const r = await api('/api/mcp/register', { method: 'POST', body: JSON.stringify({ agents }) });
       const lines = r.results.map((x) => {
@@ -179,7 +197,7 @@ async function renderMcpBlock(container) {
           : `<br>　连通性 ✗ ${x.probe.detail}（与写入结果无关，请检查命令是否可执行）`;
         return s;
       });
-      $('mcp-result').innerHTML = lines.map((l) => `<div>${l}</div>`).join('');
+      container.querySelector('#mcp-result').innerHTML = lines.map((l) => `<div>${l}</div>`).join('');
       const failed = r.results.filter((x) => !x.ok).length;
       toast(failed ? `${failed} 项失败，请查看逐项错误与备份状态` : '✓ 全部写入成功');
       await refreshMain();
@@ -465,6 +483,10 @@ function projCard(p, ctx, expanded) {
 function renderProjectList() {
   api('/api/projects').then(({ projects }) => {
     S.projects = projects;
+    if (!$('project-access').dataset.initialized) {
+      $('project-access').open = projects.length === 0;
+      $('project-access').dataset.initialized = 'true';
+    }
     const list = $('project-list');
     if (!projects.length) {
       list.innerHTML = '<p class="project-empty">还没有项目。用上面的会话指令注册，或从本地文件夹关联；不需要从空白表单开始。</p>';
@@ -473,15 +495,17 @@ function renderProjectList() {
     list.innerHTML = '';
     for (const p of projects) {
       const c = p.context;
-      const el = document.createElement('div');
+      const el = document.createElement('details');
       el.className = 'proj-item';
       const srcLabel = c ? `来自${LABELS.src[c.source] || '手动填写'}${c.updatedAt ? ` · ${timeago(c.updatedAt)}` : ''}` : '';
       el.innerHTML = `
-        <div class="row1">
+        <summary class="project-summary"><span class="row1">
           <span class="pname">${esc(c?.name || p.id)}</span>
-          ${c ? `<span class="tag stage-tag">${LABELS.stage[c.stage] || c.stage}</span>` : ''}
+          <span class="tag">${p.enabled === false ? '已暂停' : '参与分析'}</span>
+        </span><span class="project-one-line">${esc(c?.goal || '尚无摘要，点击查看与完善')}</span><span class="project-expand">查看详情</span></summary>
+        <div class="project-expanded">
           ${srcLabel ? `<span class="src-note">${esc(srcLabel)}</span>` : ''}
-        </div>
+          ${c ? `<span class="tag stage-tag">${esc(LABELS.stage[c.stage] || c.stage)}</span>` : ''}
         <div class="ppath" title="${esc(p.path)}">${esc(p.path)}</div>
         ${c?.goal ? `<div class="pgoal">${esc(c.goal)}</div>` : ''}
         <div class="pgoal">当前重点：${esc(c?.focus || '尚未确认，建议补充')}</div>
@@ -491,7 +515,7 @@ function renderProjectList() {
           <button class="ghost" data-act="refresh">重新提炼</button>
           <button class="ghost" data-act="toggle">${p.enabled === false ? '加入分析' : '暂停参与分析'}</button>
           <button class="ghost danger-text" data-act="del">移除关联</button>
-        </div>`;
+        </div></div>`;
       el.querySelector('[data-act=edit]').onclick = () => openProjectForm(p);
       el.querySelector('[data-act=refresh]').onclick = () => refreshProject(p);
       el.querySelector('[data-act=toggle]').onclick = async () => {
@@ -672,6 +696,7 @@ function openProjectForm(project = null) {
       }
       form.classList.add('hidden'); S.editingProjectId = null;
       $('view-projects').classList.remove('editing-project');
+      $('project-access').open = false;
       const wasFirst = !S.projects.length;
       await refreshMain();
       switchView('main');
@@ -711,27 +736,57 @@ async function renderDeferred() {
   } catch(e) { list.textContent = `清单读取失败：${e.message}`; }
 }
 
+function groupHistory(analyses) {
+  const groups = new Map();
+  for (const a of analyses) {
+    const raw = String(a.input?.value || a.normalized?.ref || '').trim();
+    let key;
+    // Conservative matching: never merge screenshots or merely similar model-generated titles.
+    if (a.input?.type === 'image' || !raw) key = `record:${a.id}`;
+    else {
+      let value = raw.replace(/\s+/g, ' ').toLowerCase();
+      try { const url = new URL(raw); if (/^https?:$/.test(url.protocol)) {
+        url.hash = ''; url.hostname = url.hostname.toLowerCase();
+        value = url.href; // Preserve case-sensitive paths and query strings.
+      } } catch {}
+      key = `${a.input?.type || 'text'}:${value}`;
+    }
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(a);
+  }
+  return [...groups.values()];
+}
+
 async function renderHistory() {
   await renderDeferred();
-  const { analyses } = await api('/api/analyses?limit=30');
+  const { analyses } = await api('/api/analyses?limit=100');
   const list = $('history-list');
   if (!analyses.length) {
     list.innerHTML = `<div class="hint-card">还没有分析记录。<br><button class="primary small" style="margin-top:8px" onclick="document.getElementById('nav-main').click()">去输入第一个技术词</button></div>`;
     return;
   }
   list.innerHTML = '';
-  for (const a of analyses) {
-    const el = document.createElement('div');
+  list.insertAdjacentHTML('beforeend', '<p class="connection-note">最近 100 条按相同输入分组；每次判断与当时项目资料均保留。</p>');
+  for (const records of groupHistory(analyses)) {
+    const a = records[0];
+    const el = document.createElement('details');
     el.className = 'hist-item';
     const ref = a.normalized?.title || a.normalized?.ref || a.input?.value || '(无标题)';
     el.innerHTML = `
-      <div class="hist-row1"><span class="hist-ref">${esc(String(ref).slice(0, 60))}</span><span class="hist-time">${timeago(a.createdAt)}</span></div>
-      <div class="hist-badges">${identityUnresolved(a) ? '<span class="tag">身份待确认 · 尚未判断</span>' : (a.result?.projects || []).map((p) => `<span class="b b-${p.verdict}">${LABELS.verdict[p.verdict]}</span>`).join('') || '<span class="tag">名词解释 · 未关联项目</span>'}</div>`;
-    el.onclick = async () => {
-      const full = await api(`/api/analyses/${a.id}`);
-      switchView('main');
-      renderAnalysis(full.analysis, full.feedback);
-    };
+      <summary><span class="hist-row1"><span class="hist-ref">${esc(String(ref).slice(0, 60))}</span><span class="hist-time">${records.length} 次分析</span></span><span class="connection-note">最近 ${timeago(a.createdAt)} · 展开查看</span></summary>
+      <div class="history-versions"></div>`;
+    for (const record of records) {
+      const button = document.createElement('button'); button.className = 'history-version ghost';
+      const projects = (record.contextsSnapshot || []).map(p => p.name || p.context?.name).filter(Boolean).join('、');
+      button.textContent = `${new Date(record.createdAt).toLocaleString()} · ${LABELS.agentName[record.agentUsed] || record.agentUsed || '分析记录'}${projects ? ' · ' + projects : ''}${identityUnresolved(record) ? ' · 身份待确认' : ''}`;
+      button.onclick = async () => {
+        try {
+          const full = await api(`/api/analyses/${record.id}`);
+          switchView('main'); renderAnalysis(full.analysis, full.feedback);
+        } catch(e) { toast(`读取失败：${e.message}`); }
+      };
+      el.querySelector('.history-versions').appendChild(button);
+    }
     list.appendChild(el);
   }
 }
