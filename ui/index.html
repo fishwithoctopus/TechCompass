@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TechCompass</title>
+<script src="theme.js"></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="app">
   <header class="topbar">
-    <div class="brand"><img class="logo" src="brand.png" alt=""><span>TechCompass</span></div>
+    <div class="brand"><span class="logo" aria-hidden="true"></span><span>TechCompass</span></div>
     <div class="top-actions">
       <button class="icon-btn nav-main" id="nav-main" title="新分析"><span class="icon" data-icon="square-pen" aria-hidden="true"></span></button>
       <button class="icon-btn" id="nav-history" title="分析历史"><span class="icon" data-icon="history" aria-hidden="true"></span></button>
@@ -84,10 +85,10 @@
     <div id="settings-body"></div>
   </section>
 
-  <footer class="foot" title="记录保存在本机；分析时输入和项目摘要会发送给所选模型">本机记录 · <span id="foot-dir"></span></footer>
+  <footer class="foot" title="记录保存在本机，分析时输入和项目摘要会发送给所选模型">本机记录 · <span id="foot-dir"></span></footer>
 </div>
 <div id="mobile-notice" class="hidden">
-  <div class="mn-box"><b>TechCompass 是桌面小工具</b><br>请在电脑端安装使用：Windows 便携版 / 源码运行</div>
+  <div class="mn-box"><b>TechCompass 是桌面小工具</b><br>请在电脑上使用对应系统的桌面版本</div>
 </div>
 <div id="toast" class="toast hidden"></div>
 <script type="module" src="app.js"></script>

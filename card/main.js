@@ -96,9 +96,11 @@ function createWindow() {
 }
 
 function createTray() {
-  const icon = fs.existsSync(ICON_PATH)
-    ? nativeImage.createFromPath(ICON_PATH).resize({ width: 16, height: 16 })
+  const trayPath = process.platform === 'darwin' ? path.join(path.dirname(ICON_PATH), 'trayTemplate.png') : ICON_PATH;
+  const icon = fs.existsSync(trayPath)
+    ? nativeImage.createFromPath(trayPath).resize({ width: 16, height: 16 })
     : nativeImage.createEmpty();
+  if (process.platform === 'darwin') icon.setTemplateImage(true);
   tray = new Tray(icon);
   tray.setToolTip('TechCompass — 新技术 × 我的项目');
   tray.setContextMenu(Menu.buildFromTemplate([
@@ -128,6 +130,9 @@ ipcMain.on('tc:set-collapsed', (_e, collapsed) => {
   const targetH = collapsed ? WIN_H_COLLAPSED : WIN_H_EXPANDED;
   const bottom = cur.y + cur.height;
   win.setBounds({ x: cur.x, y: Math.round(bottom - targetH), width: WIN_W, height: targetH });
+});
+ipcMain.on('tc:set-theme', (_e, mode) => {
+  if (['light', 'dark'].includes(mode)) win?.setBackgroundColor(mode === 'light' ? '#f7f8fa' : '#141518');
 });
 
 // 原生目录选择器：项目关联用系统对话框选目录，不手写路径

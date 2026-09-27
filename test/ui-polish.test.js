@@ -16,6 +16,7 @@ test('desktop UI: navigation, project correction, later list, game focus and can
   const w = dom.window, $ = id => w.document.getElementById(id);
   w.fetch = (p, opts) => fetch(new URL(p, base), opts);
   w.HTMLCanvasElement.prototype.getContext = () => ({ clearRect() {}, fillRect() {} });
+  w.eval(fs.readFileSync(new URL('../ui/theme.js', import.meta.url), 'utf8'));
   const snake = fs.readFileSync(new URL('../ui/snake.js', import.meta.url), 'utf8').replaceAll('export function', 'function');
   const app = fs.readFileSync(new URL('../ui/app.js', import.meta.url), 'utf8').replace("import { mountSnake } from './snake.js';", '');
   w.eval(snake + '\n' + app);
@@ -78,6 +79,13 @@ test('desktop UI: navigation, project correction, later list, game focus and can
   assert.ok(projectCard.querySelector('[data-act=edit]'));
   $('nav-settings').click();
   await until(() => $('mcp-slot').querySelector('#mcp-copy-json'));
+  $('set-theme').value = 'light'; $('set-theme').dispatchEvent(new w.Event('change'));
+  assert.equal(w.document.documentElement.dataset.theme, 'light');
+  assert.equal(w.localStorage.getItem('tc_theme'), 'light');
+  w.eval(fs.readFileSync(new URL('../ui/theme.js', import.meta.url), 'utf8'));
+  assert.equal(w.document.documentElement.dataset.theme, 'light');
+  $('set-theme').value = 'dark'; $('set-theme').dispatchEvent(new w.Event('change'));
+  assert.equal(w.document.documentElement.dataset.theme, 'dark');
   $('mcp-slot').querySelector('#mcp-copy-json').click();
   await until(() => copied.includes('mcpServers'));
   assert.ok(JSON.parse(copied).mcpServers.techcompass.command);

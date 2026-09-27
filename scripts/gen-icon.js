@@ -1,6 +1,7 @@
 // scripts/gen-icon.js — 纯 Node 生成应用图标（PNG 256 + ICO），零图像库依赖
 // 画一个深色圆角方块 + 指南针环 + 双色指针（蓝/绿 = TechCompass 的两个徽章色）
 import fs from 'node:fs';
+import { drawMark, svg } from './compass-mark.js';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
@@ -114,115 +115,19 @@ function encodeIco(rgba, size) {
   return Buffer.concat([dir, ...entryDirs, ...entries]);
 }
 
-// ---------- 绘制 ----------
-const px = new Uint8ClampedArray(SIZE * SIZE * 4);
-const set = (x, y, r, g, b, a = 255) => {
-  if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return;
-  const i = (y * SIZE + x) * 4;
-  const na = a / 255;
-  px[i] = Math.round(r * na + px[i] * (1 - na));
-  px[i + 1] = Math.round(g * na + px[i + 1] * (1 - na));
-  px[i + 2] = Math.round(b * na + px[i + 2] * (1 - na));
-  px[i + 3] = Math.min(255, px[i + 3] + a);
-};
+const px = drawMark(SIZE);
 
-const C = SIZE / 2;
-// 圆角方块背景
-const R = 56; // 圆角
-const PAD = 8;
-for (let y = 0; y < SIZE; y++) {
-  for (let x = 0; x < SIZE; x++) {
-    const inBox = x >= PAD && y >= PAD && x < SIZE - PAD && y < SIZE - PAD;
-    if (!inBox) continue;
-    // 圆角距离
-    const cx = Math.min(Math.max(x, PAD + R), SIZE - PAD - R);
-    const cy = Math.min(Math.max(y, PAD + R), SIZE - PAD - R);
-    const d = Math.hypot(x - cx, y - cy);
-    if (d <= R) set(x, y, 21, 23, 28, 255);
-    else {
-      // 圆角边缘 2px 抗锯齿描边
-      if (d <= R + 2.5) set(x, y, 92, 179, 255, 200);
-    }
-  }
-}
-// 外描边整体（把圆角方块边缘再补一圈）
-for (let y = 0; y < SIZE; y++) {
-  for (let x = 0; x < SIZE; x++) {
-    const cx = Math.min(Math.max(x, PAD + R), SIZE - PAD - R);
-    const cy = Math.min(Math.max(y, PAD + R), SIZE - PAD - R);
-    const d = Math.hypot(x - cx, y - cy);
-    if (d > R && d <= R + 2) {
-      const inOuter = x >= PAD - 2 && y >= PAD - 2 && x < SIZE - PAD + 2 && y < SIZE - PAD + 2;
-      if (inOuter) set(x, y, 92, 179, 255, 180);
-    }
-  }
-}
-
-// 指南针环
-const RING = 74, RING_W = 10;
-for (let y = 0; y < SIZE; y++) {
-  for (let x = 0; x < SIZE; x++) {
-    const d = Math.hypot(x - C, y - C);
-    if (Math.abs(d - RING) < RING_W / 2) {
-      const a = Math.round(255 * Math.min(1, (RING_W / 2 - Math.abs(d - RING)) * 1.4));
-      set(x, y, 232, 234, 240, a);
-    }
-  }
-}
-// 四个方位刻度
-for (let k = 0; k < 4; k++) {
-  const ang = (k * Math.PI) / 2;
-  const nx = Math.cos(ang), ny = Math.sin(ang);
-  for (let t = -6; t <= 6; t++) {
-    for (let w = -4; w <= 4; w++) {
-      const x = Math.round(C + nx * (RING + 16) + -ny * t);
-      const y = Math.round(C + ny * (RING + 16) + nx * t);
-      if (Math.abs(t) + Math.abs(w) * 1.4 <= 8) set(x, y, 152, 160, 173, 255);
-    }
-  }
-}
-// 指针：蓝（东北→中心）绿（中心→西南）
-const N1 = { x: C + 46, y: C - 46 };
-const N2 = { x: C - 46, y: C + 46 };
-function fillTri(p1, p2, p3, color) {
-  const minX = Math.floor(Math.min(p1.x, p2.x, p3.x)), maxX = Math.ceil(Math.max(p1.x, p2.x, p3.x));
-  const minY = Math.floor(Math.min(p1.y, p2.y, p3.y)), maxY = Math.ceil(Math.max(p1.y, p2.y, p3.y));
-  const sign = (a, b, c) => (a.x - c.x) * (b.y - c.y) - (b.x - c.x) * (a.y - c.y);
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      const d1 = sign({ x: x + 0.5, y: y + 0.5 }, p1, p2), d2 = sign({ x: x + 0.5, y: y + 0.5 }, p2, p3), d3 = sign({ x: x + 0.5, y: y + 0.5 }, p3, p1);
-      const neg = d1 < 0 || d2 < 0 || d3 < 0, pos = d1 > 0 || d2 > 0 || d3 > 0;
-      if (!(neg && pos)) set(x, y, color[0], color[1], color[2], 255);
-    }
-  }
-}
-const BASE = 17;
-fillTri(N1, { x: C - BASE * 0.6, y: C + BASE }, { x: C + BASE, y: C - BASE * 0.6 }, [92, 179, 255]);   // 蓝
-fillTri(N2, { x: C - BASE, y: C + BASE * 0.6 }, { x: C + BASE * 0.6, y: C - BASE }, [110, 231, 160]);  // 绿
-// 中心圆点
-for (let y = -12; y <= 12; y++) {
-  for (let x = -12; x <= 12; x++) {
-    const d = Math.hypot(x, y);
-    if (d <= 11) set(C + x, C + y, 232, 234, 240, 255);
-    else if (d <= 13) set(C + x, C + y, 21, 23, 28, 200);
-  }
-}
 
 // ---------- 输出 ----------
 fs.mkdirSync(OUT_DIR, { recursive: true });
 const png = encodePng(Buffer.from(px.buffer), SIZE, SIZE);
 fs.writeFileSync(path.join(OUT_DIR, 'icon.png'), png);
+fs.writeFileSync(path.join(OUT_DIR, 'trayTemplate.png'), encodePng(drawMark(32, true), 32, 32));
+fs.writeFileSync(path.join(__dirname, '..', 'ui', 'brand.svg'), svg);
 fs.writeFileSync(path.join(__dirname, '..', 'ui', 'brand.png'), png);
 // Export the same procedural mark at a macOS packaging-compatible resolution.
 const macSize = SIZE * 4;
-const macPixels = Buffer.alloc(macSize * macSize * 4);
-const sourcePixels = Buffer.from(px.buffer);
-for (let y = 0; y < macSize; y++) {
-  for (let x = 0; x < macSize; x++) {
-    const from = (Math.floor(y / 4) * SIZE + Math.floor(x / 4)) * 4;
-    sourcePixels.copy(macPixels, (y * macSize + x) * 4, from, from + 4);
-  }
-}
+const macPixels = drawMark(macSize);
 fs.writeFileSync(path.join(OUT_DIR, 'icon-mac.png'), encodePng(macPixels, macSize, macSize));
 fs.writeFileSync(path.join(OUT_DIR, 'icon.ico'), encodeIco(Buffer.from(px.buffer), SIZE));
 console.log(`✓ ${path.join(OUT_DIR, 'icon.png')} (${png.length} bytes)`);

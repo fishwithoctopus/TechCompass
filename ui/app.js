@@ -1,6 +1,6 @@
 // ui/app.js — TechCompass 卡片逻辑（无框架、无构建）
-// v0.2.0：常驻「新分析」入口；保存项目后回主界面；表单改为「扫描→摘要确认」流；
-//        MCP 接入界面（只改勾选项，自动备份）；项目来源与更新时间可见。
+// v0.2.0：常驻「新分析」入口，保存项目后回主界面，表单改为「扫描→摘要确认」流，
+//        MCP 接入界面（只改勾选项，自动备份），项目来源与更新时间可见。
 import { mountSnake } from './snake.js';
 const $ = (id) => document.getElementById(id);
 const icon = name => `<span class="icon" data-icon="${name}" aria-hidden="true"></span>`;
@@ -112,7 +112,7 @@ function renderCtxStrip() {
   $('ctx-manage').onclick = () => switchView('projects');
 }
 
-// 首次使用引导：两条接入路径（Agent 带入 = 首选；本地文件夹 = 备用）
+// 首次使用引导：两条接入路径（Agent 带入 = 首选，本地文件夹 = 备用）
 function renderOnboarding() {
   const detected = (S.agents.detected || []).map(id => LABELS.agentName[id]).join('、');
   $('result').innerHTML = `
@@ -155,13 +155,13 @@ async function renderMcpBlock(container) {
     <div class="mcp-block">
       <div class="mcp-http">
         <h3>通过地址接入</h3>
-        <p class="mcp-note">选择 Streamable HTTP，填写本机地址和 Bearer 密钥（或设置 Authorization: Bearer 密钥 请求头）。应用需保持运行；纯云端和仅支持旧 SSE 的客户端不能使用此地址，可选下方 stdio 方式。</p>
+        <p class="mcp-note">选择 Streamable HTTP，填写本机地址和 Bearer 密钥（或设置 Authorization: Bearer 密钥 请求头）。应用需保持运行，纯云端和仅支持旧 SSE 的客户端不能使用此地址，可选下方 stdio 方式。</p>
         <input class="mcp-url" aria-label="MCP 地址" readonly value="加载中…">
         <div class="mcp-http-actions"><button class="ghost" data-copy-http="url">复制地址</button><button class="ghost" data-copy-http="key">复制连接密钥</button></div>
         <p class="mcp-note">密钥允许读取已关联项目摘要、注册项目及保存分析，仅交给你信任的本机 Agent，不要公开分享。</p>
         <p class="mcp-http-status" role="status"></p>
       </div>
-      <div class="mcp-title">注册 MCP：只修改勾选的 Agent，写入前校验并备份。请查看逐项结果；写后异常时保留现场和备份。</div>
+      <div class="mcp-title">注册 MCP：只修改勾选的 Agent，写入前校验并备份。请查看逐项结果，写后异常时保留现场和备份。</div>
       ${Object.entries(names).map(([id, name]) => `
         <label class="mcp-item">
           <input type="checkbox" value="${id}" ${['claude', 'codex'].includes(id) ? 'checked' : ''}>
@@ -172,7 +172,7 @@ async function renderMcpBlock(container) {
       <p class="mcp-note">注册后在 Agent 会话里说「把当前项目注册进 techcompass」，项目就会同步到这张卡片。重启对应 Agent 后生效。</p>
       <div class="mcp-result" id="mcp-result"></div>
       <details class="mcp-export"><summary>其他 Agent：复制接入配置</summary>
-        <p class="mcp-note">适用于这台电脑上支持 stdio MCP 的客户端。不是网页链接；不同 Agent 的配置格式可能不同。复制不会修改任何配置。</p>
+        <p class="mcp-note">适用于这台电脑上支持 stdio MCP 的客户端。不是网页链接，不同 Agent 的配置格式可能不同。复制不会修改任何配置。</p>
         <button class="ghost" id="mcp-copy-guide">复制给 Agent 的接入说明</button>
         <button class="ghost" id="mcp-copy-json">复制 JSON 配置</button>
         <pre id="mcp-export-preview"></pre>
@@ -185,7 +185,7 @@ async function renderMcpBlock(container) {
     button.onclick = async () => {
       try {
         await navigator.clipboard.writeText(button.dataset.copyHttp === 'url' ? connection.url : connection.bearerToken);
-        httpStatus.textContent = button.dataset.copyHttp === 'url' ? '地址已复制；还需填写连接密钥。' : '连接密钥已复制，请勿公开分享。';
+        httpStatus.textContent = button.dataset.copyHttp === 'url' ? '地址已复制，还需填写连接密钥。' : '连接密钥已复制，请勿公开分享。';
       } catch { httpStatus.textContent = '无法访问剪贴板，请检查客户端权限后重试。'; }
     };
   }
@@ -197,11 +197,11 @@ async function renderMcpBlock(container) {
     try {
       const { mcp } = await api('/api/state');
       const config = JSON.stringify({ mcpServers: { techcompass: mcp.entry } }, null, 2);
-      const text = guide ? `请帮我在当前客户端接入本机 TechCompass 的 stdio MCP。先确认客户端支持本地 MCP；以下是这台电脑的启动配置，请转换为客户端要求的格式，不要覆盖其他服务。修改前备份并校验，路径不存在时停止并询问我，不要猜测替代路径。完成后验证 MCP 握手与工具列表，再告诉我是否需要重启。不要自动注册或上传项目。\n\n${config}` : config;
+      const text = guide ? `请帮我在当前客户端接入本机 TechCompass 的 stdio MCP。先确认客户端支持本地 MCP，以下是这台电脑的启动配置，请转换为客户端要求的格式，不要覆盖其他服务。修改前备份并校验，路径不存在时停止并询问我，不要猜测替代路径。完成后验证 MCP 握手与工具列表，再告诉我是否需要重启。不要自动注册或上传项目。\n\n${config}` : config;
       container.querySelector('#mcp-export-preview').textContent = text;
       await navigator.clipboard.writeText(text);
-      toast('已复制；交给目标 Agent 确认接入');
-    } catch (e) { toast('复制失败；如配置已显示，可选中文字手动复制'); }
+      toast('已复制，交给目标 Agent 确认接入');
+    } catch (e) { toast('复制失败，如配置已显示，可选中文字手动复制'); }
   };
   container.querySelector('#mcp-copy-guide').onclick = () => copyMcp(true);
   container.querySelector('#mcp-copy-json').onclick = () => copyMcp(false);
@@ -385,7 +385,7 @@ function renderAnalysis(analysis, feedback = []) {
       ${analysis.agentUsed === 'mock' ? '<div class="warn-banner">离线演示：不是模型分析，请勿据此决策。</div>' : analysis.fellBack ? '<div class="warn-banner">首选模型未完成，已使用上方标注的备用模型。</div>' : ''}
       ${termsHtml}
       <div id="term-detail"></div>
-      ${analysis.research ? `<details class="hint-card"><summary>${analysis.research.status === 'provided_link' ? '输入链接来源' : analysis.research.status === 'no_results' ? '已搜索，暂无可靠来源' : '联网检索来源'}${analysis.research.ambiguous ? ' · 存在多个候选' : ''}</summary><p>检索与项目分析分开；以下为检索模型引用的来源，请核对原文。</p>${(analysis.research.sources || []).filter(s => /^https?:\/\//i.test(s.url)).map(s => `<p><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.title)}</a></p>`).join('')}${analysis.research.searchedAt ? `<p>检索时间：${esc(new Date(analysis.research.searchedAt).toLocaleString())}（同一输入最多复用 30 分钟）</p>` : ''}</details>` : ''}
+      ${analysis.research ? `<details class="hint-card"><summary>${analysis.research.status === 'provided_link' ? '输入链接来源' : analysis.research.status === 'no_results' ? '已搜索，暂无可靠来源' : '联网检索来源'}${analysis.research.ambiguous ? ' · 存在多个候选' : ''}</summary><p>检索与项目分析分开，以下为检索模型引用的来源，请核对原文。</p>${(analysis.research.sources || []).filter(s => /^https?:\/\//i.test(s.url)).map(s => `<p><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.title)}</a></p>`).join('')}${analysis.research.searchedAt ? `<p>检索时间：${esc(new Date(analysis.research.searchedAt).toLocaleString())}（同一输入最多复用 30 分钟）</p>` : ''}</details>` : ''}
       <div id="missing-slot"></div>
       <div id="proj-list"></div>
     </div>`;
@@ -512,7 +512,7 @@ function renderProjectList() {
     }
     const list = $('project-list');
     if (!projects.length) {
-      list.innerHTML = '<p class="project-empty">还没有项目。用上面的会话指令注册，或从本地文件夹关联；不需要从空白表单开始。</p>';
+      list.innerHTML = '<p class="project-empty">还没有项目。用上面的会话指令注册，或从本地文件夹关联，不需要从空白表单开始。</p>';
       return;
     }
     list.innerHTML = '';
@@ -564,7 +564,7 @@ function projFormShell() {
   return `
     <div class="pf-step">
       <h3 class="pf-step-title">${S.editingProjectId ? '查看与纠正项目理解' : '从本地文件夹关联'}</h3>
-      <p class="scan-note">${S.editingProjectId ? '只修改这份项目摘要，不会修改你的项目文件。' : '先选目录，自动生成摘要；你只需确认或纠正，不用逐项手填。'}</p>
+      <p class="scan-note">${S.editingProjectId ? '只修改这份项目摘要，不会修改你的项目文件。' : '先选目录，自动生成摘要，你只需确认或纠正，不用逐项手填。'}</p>
       ${HAS_ELECTRON
         ? `<button class="primary" id="pf-pick">选择文件夹…</button>`
         : `<div class="path-row"><input type="text" id="pf-path" aria-label="本地项目文件夹路径" placeholder="项目绝对路径，如 D:\\code\\my-app"><button class="ghost" id="pf-scan">扫描</button></div>`}
@@ -789,7 +789,7 @@ async function renderHistory() {
     return;
   }
   list.innerHTML = '';
-  list.insertAdjacentHTML('beforeend', '<p class="connection-note">最近 100 条按相同输入分组；每次判断与当时项目资料均保留。</p>');
+  list.insertAdjacentHTML('beforeend', '<p class="connection-note">最近 100 条按相同输入分组，每次判断与当时项目资料均保留。</p>');
   for (const records of groupHistory(analyses)) {
     const a = records[0];
     const el = document.createElement('details');
@@ -821,6 +821,7 @@ async function renderSettings() {
   const body = $('settings-body');
   const detected = st.agents.detected.map((a) => LABELS.agentName[a]).join('、') || '未检测到';
   body.innerHTML = `
+    <div class="settings-row"><label class="sk" for="set-theme">外观</label><select id="set-theme"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></div>
     <div class="settings-row"><span class="sk">首选 Agent</span>
       <select id="set-agent">
         <option value="claude">Claude Code</option>
@@ -829,19 +830,19 @@ async function renderSettings() {
       </select>
     </div>
     <div class="settings-row"><span class="sk">已检测到的 Agent</span><span class="sv">${esc(detected)}</span></div>
-    <p class="connection-note">找到程序 ≠ 已登录可用。下面发送一条最小测试，不含项目内容，可能使用少量额度；不验证联网搜索。</p>
+    <p class="connection-note">测试仅检查模型响应，不发送项目内容，可能消耗少量额度。</p>
     <button class="ghost" id="cli-test">测试所选模型响应</button><p id="cli-status" role="status"></p>
     <div class="settings-row"><span class="sk">数据目录</span><span class="sv">${esc(st.dataDir)}</span></div>
     <div class="settings-row"><span class="sk">版本</span><span class="sv">TechCompass v${esc(st.version)}</span></div>
     <div class="settings-row"><span class="sk">分析总数</span><span class="sv">${st.analysesCount}</span></div>
     <div class="settings-block">
       <h3>自定义分析模型</h3>
-      <p>Codex 模式一次完成联网检索和项目判断，搜索只使用技术关键词，不应包含项目私密信息。其他模型仍先借助 Codex 检索，再分析。需要 Codex 登录和额度；直接链接读取原文。</p>
-      <p>兼容 OpenAI Chat Completions 的服务。项目摘要和输入会发送到你填写的服务；由该服务计费。</p>
+      <p>支持兼容 OpenAI 的 API，输入与项目摘要会发送给该服务并由其计费。</p>
+      <details><summary>联网搜索与额度</summary><p>关键词搜索仍需已登录的 Codex 和可用额度。直接链接读取原文，请勿在搜索词中包含项目私密信息。</p></details>
       <label>API 地址（含 /v1 等前缀）<input id="api-url" type="url" placeholder="https://服务地址/v1" value="${esc(st.settings.apiProvider?.baseUrl || '')}"></label>
       <label>模型名称<input id="api-model" placeholder="服务商提供的模型 ID" value="${esc(st.settings.apiProvider?.model || '')}"></label>
       <label>API Key<input id="api-key" type="password" autocomplete="off" placeholder="${st.apiKeyConfigured ? '已保存，留空保持不变' : '填写你的 API Key'}"></label>
-      <p>${st.apiKeyPersistent ? '密钥由 Windows 本机加密保存，不会显示或打包进源码。' : '当前环境无法加密持久保存，密钥仅本次运行有效。'}</p>
+      <p>${st.apiKeyPersistent ? '密钥由操作系统加密保存在本机。' : '当前无法加密保存，密钥仅本次运行有效。'}</p>
       <button id="api-save" class="primary">保存 API 模型</button>
       <button id="api-test" class="ghost">测试连接</button>
       <button id="api-remove" class="ghost">移除</button>
@@ -852,9 +853,11 @@ async function renderSettings() {
       <div id="mcp-slot"></div>
     </div>
     <div style="margin-top:10px;color:var(--dim);font-size:11.5px">
-      项目来源与分析模型是两回事：MCP 同步 Agent 提供的项目摘要；本地 CLI 或 API 负责本次分析。不会自动读取所有会话。自动模式只尝试真实模型，不会降级为演示。CLI 使用原账号额度，并非免费。
+      MCP 同步项目摘要，CLI 或 API 负责分析。不会读取所有会话，CLI 使用原账号额度。
     </div>`;
   const sel = $('set-agent');
+  $('set-theme').value = localStorage.getItem('tc_theme') || 'system';
+  $('set-theme').onchange = e => window.tcApplyTheme?.(e.target.value);
   $('cli-test').onclick = async e => {
     e.currentTarget.disabled = true; $('cli-status').textContent = '测试中…';
     try {

@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
+  setTheme: mode => ipcRenderer.send('tc:set-theme', mode),
   isElectron: true,
   setCollapsed: (collapsed) => ipcRenderer.send('tc:set-collapsed', collapsed),
   onCollapseToggle: (cb) => ipcRenderer.on('tc:toggle-collapse', () => cb()),
