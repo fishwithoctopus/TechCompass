@@ -20,6 +20,21 @@ test('desktop UI: navigation, project correction, later list, game focus and can
   const app = fs.readFileSync(new URL('../ui/app.js', import.meta.url), 'utf8').replace("import { mountSnake } from './snake.js';", '');
   w.eval(snake + '\n' + app);
   await until(() => $('ob-folder'));
+  // Legacy records must not continue showing low/ignore after this UI update.
+  const unknown = { id: 'legacy-unknown', contextsSnapshot: [{ projectId: 'p', name: '测试项目' }], research: { status: 'no_results', ambiguous: true, sources: [] }, result: { terms: [{ term: '虚构词', what: '无法确认', solves: '未知' }], projects: [{ projectId: 'p', relevance: 'low', verdict: 'ignore' }], missing: ['请补充链接'] } };
+  w.eval(`renderAnalysis(${JSON.stringify(unknown)})`);
+  assert.ok($('result').textContent.includes('尚不能判断项目相关性'));
+  assert.equal(w.document.querySelector('.proj-card'), null);
+  assert.equal($('result').textContent.includes('基本无关'), false);
+  assert.equal($('result').textContent.includes('当前可以忽略'), false);
+  const definition = { id: 'definition', contextsSnapshot: [], result: { identityStatus: 'identified', terms: [{ term: 'Bun', what: 'JavaScript 工具链', solves: '安装、测试和打包' }], projects: [], missing: [] } };
+  w.eval(`renderAnalysis(${JSON.stringify(definition)})`);
+  assert.ok($('term-detail').textContent.includes('JavaScript 工具链'));
+  $('result-add-project').click();
+  assert.equal($('project-form').classList.contains('hidden'), false);
+  $('pf-cancel').click();
+  w.eval('renderOnboarding(); switchView("main");');
+  await until(() => $('ob-folder'));
   assert.equal($('nav-main').getAttribute('aria-current'), 'page');
   for (const view of ['history', 'projects', 'settings', 'main']) {
     $(`nav-${view}`).click();

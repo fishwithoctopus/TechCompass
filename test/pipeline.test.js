@@ -92,9 +92,10 @@ test('enhance：从扫描提取上下文草稿', async () => {
   assert.ok(draft.stack.includes('Next.js'));
 });
 
-test('无项目时给出 missing 提示而非空判断', async () => {
+test('无项目时正常解释名词，不把缺少项目当成问题', async () => {
   const { pipeline } = boot();
   const r = await pipeline.analyze({ type: 'text', value: 'MCP 是什么' });
   assert.deepEqual(r.result.projects, []);
-  assert.ok(r.result.missing.some((m) => m.includes('项目')));
+  assert.ok(r.result.terms[0].what.length > 0);
+  assert.deepEqual(r.result.missing, []);
 });

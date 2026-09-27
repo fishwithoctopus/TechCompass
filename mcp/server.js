@@ -92,8 +92,10 @@ server.tool(
         '5 动作与情境': 'try_now 必给 tryAction（半天内可完成的验证动作）；later/ignore 必给 futureTrigger（什么需求/阶段出现才值得再看）。',
         '6 missing': '信息不足时列出要问用户的问题（≤5 条），不要瞎猜。',
         '7 克制': '「当前可以忽略」是有价值的结论，不要把每条输入都变成学习任务。',
+        '8 技术身份': 'identityStatus=identified/unverified/ambiguous。无法确认身份或存在歧义时 projects=[]，不得用 low/ignore 代替未知；missing 可请求拼写、链接或用途。没有项目时正常解释名词，projects=[]，无需索要项目信息。',
       },
       outputSchema: {
+        identityStatus: 'identified|unverified|ambiguous',
         terms: [{ term: 'string', what: 'string', solves: 'string' }],
         projects: [{
           projectId: '必须与上面 projects 的 projectId 完全一致',
@@ -116,6 +118,7 @@ server.tool(
   {
     content: z.string().describe('用户原始输入（用于归档与缓存键）'),
     result: z.object({
+      identityStatus: z.enum(['identified', 'unverified', 'ambiguous']).optional(),
       terms: z.array(z.object({ term: z.string(), what: z.string(), solves: z.string() })).min(1).max(3),
       projects: z.array(z.object({
         projectId: z.string(),

@@ -316,14 +316,19 @@ function showError(e) {
 // ---------- 渲染分析结果 ----------
 const REL_ORDER = { high: 0, medium: 1, low: 2 };
 const VERDICT_ORDER = { try_now: 0, later: 1, ignore: 2 };
+function identityUnresolved(a) {
+  return ['unverified', 'ambiguous'].includes(a.result?.identityStatus) || a.research?.status === 'no_results' || a.research?.ambiguous;
+}
 
 function renderAnalysis(analysis, feedback = []) {
   const { result } = analysis;
+  const unresolved = identityUnresolved(analysis);
+  const hasProjects = (analysis.contextsSnapshot || []).length > 0;
   S.analysis = analysis;
   S.feedback = Object.fromEntries(feedback.map((f) => [f.projectId, f]));
   S.activeTerm = 0;
   const ctxById = Object.fromEntries((analysis.contextsSnapshot || []).map((c) => [c.projectId, c]));
-  const projs = [...result.projects].sort((a, b) =>
+  const projs = [...(unresolved ? [] : result.projects)].sort((a, b) =>
     (Number(b.projectId === S.currentProject) - Number(a.projectId === S.currentProject)) || (VERDICT_ORDER[a.verdict] - VERDICT_ORDER[b.verdict]) || (REL_ORDER[a.relevance] - REL_ORDER[b.relevance]));
 
   const termsHtml = result.terms.length > 1
@@ -345,7 +350,7 @@ function renderAnalysis(analysis, feedback = []) {
     </div>`;
 
   renderTermDetail();
-  if (analysis.research?.ambiguous) {
+  if (analysis.research?.ambiguous && analysis.research.status !== 'no_results' && result.terms.length > 1) {
     const choices = document.createElement('div'); choices.className = 'hint-card';
     choices.innerHTML = `<b>先确认你指的是哪一个</b><p>${esc(analysis.research.summary)}</p>`;
     for (const term of result.terms) {
@@ -366,10 +371,22 @@ function renderAnalysis(analysis, feedback = []) {
   }
   renderMissing(result.missing || []);
   const list = $('proj-list');
-  if (!projs.length) {
-    list.innerHTML = `<div class="hint-card">还没有关联项目，判断无法结合你的实际情况。<br><button class="primary small" style="margin-top:8px" onclick="document.getElementById('nav-projects').click()">去关联项目</button></div>`;
+  if (unresolved) {
+    const notice = document.createElement('div'); notice.className = 'hint-card identity-notice';
+    notice.innerHTML = '<b>暂时无法确认技术身份</b><p>尚不能判断项目相关性。缺少可靠资料不代表它不存在，请检查拼写，或补充链接、截图、用途。</p>';
+    $('term-detail').before(notice);
+  }
+  if (!hasProjects) {
+    const ready = S.projects.some(p => p.enabled !== false);
+    list.innerHTML = `<div class="hint-card"><b>${ready ? '项目已关联，可以继续判断' : '关联项目，再看看它和你有什么关系'}</b><p>${unresolved ? '确认名词身份后，可结合项目继续判断。' : '上面是名词解释。结合项目后，可以进一步判断适用位置和是否值得现在尝试。'}</p><button class="primary small" id="result-add-project">${ready ? '结合项目重新分析' : '关联项目'}</button></div>`;
+    $('result-add-project').onclick = () => {
+      if (!ready) { switchView('projects'); openProjectForm(null); return; }
+      if (!$('input').value.trim() && analysis.input?.type !== 'image') $('input').value = analysis.input?.value || analysis.normalized?.ref || '';
+      analyze();
+    };
     return;
   }
+  if (unresolved) return;
   projs.forEach((p) => list.appendChild(projCard(p, ctxById[p.projectId], false)));
 }
 
@@ -653,6 +670,7 @@ function openProjectForm(project = null) {
       const wasFirst = !S.projects.length;
       await refreshMain();
       switchView('main');
+      if (S.analysis) renderAnalysis(S.analysis);
       toast('✓ 项目已关联，现在输入一个技术词试试');
       if (wasFirst) $('input').focus();
     } catch (e) { toast(`保存失败：${e.message}`); }
@@ -703,7 +721,7 @@ async function renderHistory() {
     const ref = a.normalized?.title || a.normalized?.ref || a.input?.value || '(无标题)';
     el.innerHTML = `
       <div class="hist-row1"><span class="hist-ref">${esc(String(ref).slice(0, 60))}</span><span class="hist-time">${timeago(a.createdAt)}</span></div>
-      <div class="hist-badges">${(a.result?.projects || []).map((p) => `<span class="b b-${p.verdict}">${LABELS.verdict[p.verdict]}</span>`).join('') || '<span class="tag">无项目</span>'}</div>`;
+      <div class="hist-badges">${identityUnresolved(a) ? '<span class="tag">身份待确认 · 尚未判断</span>' : (a.result?.projects || []).map((p) => `<span class="b b-${p.verdict}">${LABELS.verdict[p.verdict]}</span>`).join('') || '<span class="tag">名词解释 · 未关联项目</span>'}</div>`;
     el.onclick = async () => {
       const full = await api(`/api/analyses/${a.id}`);
       switchView('main');
