@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {Store} from '../lib/store.js';
+import {Pipeline} from '../lib/pipeline.js';
+const store=new Store(path.resolve('qa','search-smoke'));
+await store.upsertProject({id:'pj_search',path:process.cwd()});
+await store.saveContext({projectId:'pj_search',name:'TechCompass',goal:'降低开发者的新技术焦虑',stage:'mvp',stack:['Electron','Node.js'],keyDeps:[],focus:'搜索资料后判断相关性',constraints:['当天交付'],source:'manual'});
+const r=await new Pipeline({store}).analyze({type:'text',value:'jev',onStage:console.log},{agentId:'codex',noCache:true});
+const row=store.getAnalysis(r.analysisId);
+fs.writeFileSync('qa/search-pipeline-result.json',JSON.stringify(row,null,2));
+console.log(JSON.stringify({agentUsed:r.agentUsed,searchCount:row.research.searchCount,sources:row.research.sources,terms:r.result.terms,missing:r.result.missing},null,2));

@@ -8,7 +8,29 @@ TechCompass 是面向 AI Agent 用户的 Windows 桌面技术相关性助手。�
 
 [下载 Windows 便携版](https://github.com/fishwithoctopus/TechCompass/releases/download/v0.3.2/TechCompass-0.3.2-Windows.zip) · [查看版本发布页](https://github.com/fishwithoctopus/TechCompass/releases/tag/v0.3.2)
 
-> 当前版本：**0.3.2 原型版**。本仓库目前用于产品介绍与 Windows 程序分发，尚未公开上传完整源码。网页中的预设交互示例不等于桌面程序的实时分析。
+> 当前已发布程序：**0.3.2 Windows 原型版**。本仓库已按 MIT 许可公开完整应用源码。主分支另含开发中的 macOS 适配，尚不代表已完成 Mac 真机验收。网页中的预设交互示例不等于桌面程序的实时分析。
+
+## 从源码运行与参与开发
+
+需要 Node.js 20 或更高版本。模型工具仍需独立安装、登录或配置 API。
+
+```sh
+git clone https://github.com/fishwithoctopus/TechCompass.git
+cd TechCompass
+npm ci
+npm test
+npm run card
+```
+
+源码包含桌面界面 `ui/`、Electron 壳 `card/`、本地核心 `lib/`、Agent 接口 `mcp/`、命令行 `bin/` 与测试 `test/`。`test/fixtures` 中的示例项目仅用于测试，不会自动导入用户项目。未上传本机项目记录、历史分析、账号凭据或 API Key。
+
+### macOS 开发预览
+
+在 Mac 上运行 `npm run dist:mac:arm64`（Apple Silicon）或 `npm run dist:mac:x64`（Intel），生成 DMG / ZIP。也可手动运行本仓库的 `macOS preview build` 工作流。构建产物只是开发预览，不自动发布到 Release。
+
+已补充常见 CLI 路径、Command 快捷键、原生编辑菜单与正常退出处理。签名、公证与真实 Mac 安装、模型调用、截图粘贴、Keychain 验收仍待完成；请勿为运行预览版关闭系统安全防护。
+
+下一阶段计划见 [完善清单与 Mac 验收要求](docs/NEXT-ITERATION-AND-MAC.md)。主分支适配后的本地测试为 84 项，已发布的 Windows 0.3.2 验证记录仍为 81 项。
 
 ## 为什么做这个产品
 

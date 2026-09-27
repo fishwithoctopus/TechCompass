@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+Thumbs.db
+.techcompass-test*/
+qa/
+*.encrypted
+.env
+.env.*
+!.env.example
+site/download/
+*.zip
+*.dmg

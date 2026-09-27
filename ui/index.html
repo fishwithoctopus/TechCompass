@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TechCompass</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand"><span class="logo"><span class="icon" data-icon="compass" aria-hidden="true"></span></span>TechCompass</div>
+    <div class="top-actions">
+      <button class="icon-btn nav-main" id="nav-main" title="新分析"><span class="icon" data-icon="square-pen" aria-hidden="true"></span></button>
+      <button class="icon-btn" id="nav-history" title="分析历史"><span class="icon" data-icon="history" aria-hidden="true"></span></button>
+      <button class="icon-btn" id="nav-projects" title="项目"><span class="icon" data-icon="folder" aria-hidden="true"></span></button>
+      <button class="icon-btn" id="nav-settings" title="设置"><span class="icon" data-icon="settings" aria-hidden="true"></span></button>
+      <button class="icon-btn" id="btn-collapse" title="收起 / 展开"><span class="icon" data-icon="minus" aria-hidden="true"></span></button>
+    </div>
+  </header>
+
+  <section id="view-main">
+    <div class="input-card">
+      <textarea id="input" rows="2" placeholder="输入技术词或链接，也可选择图片"></textarea>
+      <div id="img-chip" class="img-chip hidden">
+        <img id="img-preview" alt="待分析图片预览"><span id="img-name">已选择图片</span><button id="img-clear" title="移除"><span class="icon" data-icon="x" aria-hidden="true"></span></button>
+      </div>
+      <div class="image-actions"><button id="img-pick" class="ghost"><span class="icon" data-icon="image" aria-hidden="true"></span>选择图片</button><span>也可拖入或粘贴 · 最大 8 MB</span><input id="img-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></div>
+      <div class="input-row">
+        <select id="agent-select" title="分析引擎"></select>
+        <button id="btn-analyze" class="primary">分析</button>
+      </div>
+    </div>
+
+    <div id="ctx-strip" class="ctx-strip hidden"></div>
+
+    <div id="status" class="status hidden">
+      <div class="spinner"></div><span id="status-text">分析中…</span>
+    </div>
+    <div id="result"></div>
+  </section>
+
+  <section id="view-projects" class="view hidden">
+    <div class="view-head">
+      <button class="icon-btn back" data-back title="返回分析"><span class="icon" data-icon="arrow-left" aria-hidden="true"></span></button>
+      <h2>项目</h2>
+      <button id="btn-add-project" class="primary small"><span class="icon" data-icon="plus" aria-hidden="true"></span> 关联项目</button>
+    </div>
+    <div id="project-form" class="panel form hidden"></div>
+    <div id="project-list"></div>
+  </section>
+
+  <section id="view-history" class="view hidden">
+    <div class="view-head">
+      <button class="icon-btn back" data-back title="返回分析"><span class="icon" data-icon="arrow-left" aria-hidden="true"></span></button>
+      <h2>分析历史</h2>
+    </div>
+    <div id="history-list"></div>
+  </section>
+
+  <section id="view-settings" class="view hidden">
+    <div class="view-head">
+      <button class="icon-btn back" data-back title="返回分析"><span class="icon" data-icon="arrow-left" aria-hidden="true"></span></button>
+      <h2>设置</h2>
+    </div>
+    <div id="settings-body" class="panel"></div>
+  </section>
+
+  <footer class="foot">数据仅存本机 · <span id="foot-dir"></span></footer>
+</div>
+<div id="mobile-notice" class="hidden">
+  <div class="mn-box"><b>TechCompass 是桌面小工具</b><br>请在电脑端安装使用：Windows 便携版 / 源码运行</div>
+</div>
+<div id="toast" class="toast hidden"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

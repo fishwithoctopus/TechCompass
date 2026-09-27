@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {Store} from '../lib/store.js';
+import {Pipeline} from '../lib/pipeline.js';
+const store=new Store(path.resolve('qa','search-smoke'));
+const optimized=store.listAnalyses(30).find(a=>a.mode==='combined-search');
+const start=Date.now();
+const r=await new Pipeline({store,combinedSearch:false}).analyze({type:'text',value:'jev',onStage:console.log},{agentId:'codex',noCache:true});
+const report={input:'jev',baselineMs:Date.now()-start,optimizedMs:optimized?.durationMs,baselineId:r.analysisId,optimizedId:optimized?.id,note:'单次实际调用对比；网络和模型负载会波动，不代表稳定延迟承诺'};
+fs.writeFileSync('qa/speed-comparison.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));

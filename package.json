@@ -1,0 +1,91 @@
+{
+  "name": "techcompass",
+  "version": "0.3.2",
+  "description": "TechCompass — 帮你判断新技术与你的项目有什么关系。悬浮卡片 + Agent 借脑 + MCP 插件。",
+  "type": "module",
+  "main": "card/main.js",
+  "bin": {
+    "techcompass": "bin/techcompass.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "mcp",
+    "ui",
+    "card",
+    "scripts/gen-icon.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "daemon": "node bin/techcompass.js daemon",
+    "card": "electron .",
+    "gen:icon": "node scripts/gen-icon.js",
+    "dist:win": "electron-builder --win nsis zip --x64",
+    "dist:mac:arm64": "electron-builder --mac dmg zip --arm64 --publish never",
+    "dist:mac:x64": "electron-builder --mac dmg zip --x64 --publish never"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "cross-spawn": "^7.0.6",
+    "smol-toml": "^1.9.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "build": {
+    "appId": "ai.techcompass.app",
+    "productName": "TechCompass",
+    "npmRebuild": false,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "card/**",
+      "bin/**",
+      "build/**",
+      "lib/**",
+      "ui/**",
+      "mcp/**",
+      "node_modules/**",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon-mac.png",
+      "artifactName": "TechCompass-${version}-mac-${arch}.${ext}",
+      "target": ["dmg", "zip"]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "artifactName": "TechCompass-Setup-${version}.exe"
+    }
+  },
+  "license": "MIT"
+}
