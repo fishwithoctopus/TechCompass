@@ -79,6 +79,7 @@ function createWindow() {
     alwaysOnTop: true,
     show: false,
     backgroundColor: '#15171c',
+    icon: ICON_PATH,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,

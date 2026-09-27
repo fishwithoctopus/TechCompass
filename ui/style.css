@@ -69,7 +69,8 @@ code { font-family: var(--mono); font-size: 12px; background: var(--panel-2); bo
   background: var(--panel); flex: none;
 }
 .brand { font-weight: 600; font-size: 12.5px; letter-spacing: .2px; display: flex; align-items: center; gap: 6px; }
-.logo { color: var(--accent); font-size: 14px; }
+.logo { width: 22px; height: 22px; display: block; flex: none; }
+.brand { line-height: 22px; }
 .top-actions { display: flex; gap: 2px; align-items: center; }
 .icon-btn {
   width: 28px; height: 26px; border-radius: 6px; font-size: 13px;
@@ -186,6 +187,11 @@ code { font-family: var(--mono); font-size: 12px; background: var(--panel-2); bo
   margin: 0 -12px 16px; border-bottom: 1px solid var(--line);
 }
 .view-head h2 { font-size: 14px; flex: 1; }
+.view-head { height: 58px; min-height: 58px; box-sizing: border-box; }
+#settings-body { padding: 0; background: none; border: 0; }
+.mcp-http { padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+.mcp-http input { width: 100%; min-width: 0; margin: 8px 0; }
+.mcp-http-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .project-summary, .hist-item > summary { cursor: pointer; list-style: none; }
 .project-summary::-webkit-details-marker, .hist-item > summary::-webkit-details-marker { display: none; }
 .project-summary .row1 { display: flex; justify-content: space-between; gap: 8px; }

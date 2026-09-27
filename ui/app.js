@@ -153,6 +153,14 @@ async function renderMcpBlock(container) {
   };
   container.innerHTML = `
     <div class="mcp-block">
+      <div class="mcp-http">
+        <h3>通过地址接入</h3>
+        <p class="mcp-note">选择 Streamable HTTP，填写本机地址和 Bearer 密钥（或设置 Authorization: Bearer 密钥 请求头）。应用需保持运行；纯云端和仅支持旧 SSE 的客户端不能使用此地址，可选下方 stdio 方式。</p>
+        <input class="mcp-url" aria-label="MCP 地址" readonly value="加载中…">
+        <div class="mcp-http-actions"><button class="ghost" data-copy-http="url">复制地址</button><button class="ghost" data-copy-http="key">复制连接密钥</button></div>
+        <p class="mcp-note">密钥允许读取已关联项目摘要、注册项目及保存分析，仅交给你信任的本机 Agent，不要公开分享。</p>
+        <p class="mcp-http-status" role="status"></p>
+      </div>
       <div class="mcp-title">注册 MCP：只修改勾选的 Agent，写入前校验并备份。请查看逐项结果；写后异常时保留现场和备份。</div>
       ${Object.entries(names).map(([id, name]) => `
         <label class="mcp-item">
@@ -170,6 +178,21 @@ async function renderMcpBlock(container) {
         <pre id="mcp-export-preview"></pre>
       </details>
     </div>`;
+  let connection;
+  const httpStatus = container.querySelector('.mcp-http-status');
+  for (const button of container.querySelectorAll('[data-copy-http]')) {
+    button.disabled = true;
+    button.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(button.dataset.copyHttp === 'url' ? connection.url : connection.bearerToken);
+        httpStatus.textContent = button.dataset.copyHttp === 'url' ? '地址已复制；还需填写连接密钥。' : '连接密钥已复制，请勿公开分享。';
+      } catch { httpStatus.textContent = '无法访问剪贴板，请检查客户端权限后重试。'; }
+    };
+  }
+  api('/api/mcp/connection').then(info => {
+    connection = info; container.querySelector('.mcp-url').value = info.url;
+    container.querySelectorAll('[data-copy-http]').forEach(b => b.disabled = false);
+  }).catch(() => { httpStatus.textContent = '连接信息读取失败，请重新进入设置重试。'; });
   const copyMcp = async (guide) => {
     try {
       const { mcp } = await api('/api/state');

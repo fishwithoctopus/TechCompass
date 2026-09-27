@@ -65,7 +65,7 @@ function scaleRgba(src, srcW, srcH, dstW, dstH) {
         }
       }
       const o = (y * dstW + x) * 4;
-      out[o] = Math.round(b / n); out[o + 1] = Math.round(g / n); out[o + 2] = Math.round(r / n); out[o + 3] = Math.round(a / n);
+      out[o] = Math.round(r / n); out[o + 1] = Math.round(g / n); out[o + 2] = Math.round(b / n); out[o + 3] = Math.round(a / n);
     }
   }
   return out;
@@ -212,6 +212,7 @@ for (let y = -12; y <= 12; y++) {
 fs.mkdirSync(OUT_DIR, { recursive: true });
 const png = encodePng(Buffer.from(px.buffer), SIZE, SIZE);
 fs.writeFileSync(path.join(OUT_DIR, 'icon.png'), png);
+fs.writeFileSync(path.join(__dirname, '..', 'ui', 'brand.png'), png);
 // Export the same procedural mark at a macOS packaging-compatible resolution.
 const macSize = SIZE * 4;
 const macPixels = Buffer.alloc(macSize * macSize * 4);

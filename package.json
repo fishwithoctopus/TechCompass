@@ -1,6 +1,6 @@
 {
   "name": "techcompass",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "TechCompass — 帮你判断新技术与你的项目有什么关系。悬浮卡片 + Agent 借脑 + MCP 插件。",
   "type": "module",
   "main": "card/main.js",

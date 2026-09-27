@@ -54,4 +54,6 @@ for(const [name,data] of entries) {
  const start=8+archive.readUInt32LE(4)+Number(e.offset);
  if(!archive.subarray(start,start+e.size).equals(data)) throw new Error('Verification failed: '+name);
 }
-console.log(JSON.stringify({out,files:entries.size,sha256:crypto.createHash('sha256').update(archive).digest('hex')}));
+const stamp = require('node:child_process').spawnSync(process.execPath, [path.join(root, 'scripts', 'stamp-icon.mjs'), path.join(out, 'TechCompass.exe')], { encoding: 'utf8', windowsHide: true });
+if (stamp.status !== 0) throw new Error('Icon stamping failed: '+stamp.stderr);
+console.log(JSON.stringify({out,files:entries.size,sha256:crypto.createHash('sha256').update(archive).digest('hex'),iconStamped:true}));
