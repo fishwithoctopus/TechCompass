@@ -38,11 +38,15 @@ async function main() {
   const [cmd, ...rest] = process.argv.slice(2);
   const flags = new Map();
   const positional = [];
-  for (const a of rest) {
+  for (let i = 0; i < rest.length; i++) {
+    const a = rest[i];
     if (a.startsWith('--')) {
       const eq = a.indexOf('=');
       if (eq > 0) flags.set(a.slice(2, eq), a.slice(eq + 1));
-      else flags.set(a.slice(2), true);
+      else if (a === '--agent') {
+        if (!rest[i + 1] || rest[i + 1].startsWith('--')) throw new Error('--agent 后需要模型名称');
+        flags.set('agent', rest[++i]);
+      } else flags.set(a.slice(2), true);
     } else positional.push(a);
   }
   const argAfter = (name) => {
@@ -124,7 +128,7 @@ async function main() {
       const { Pipeline } = await import('../lib/pipeline.js');
       const store = new Store(defaultDataDir());
       const pipeline = new Pipeline({ store });
-      const agent = argAfter('agent');
+        const agent = typeof flags.get('agent') === 'string' ? flags.get('agent') : undefined;
       process.stderr.write(`分析中（${agent || '自动'}）… 项目数: ${store.getContexts().length}\n`);
       try {
         const r = await pipeline.analyze({ type: /^https?:\/\//i.test(content) ? 'link' : 'text', value: content }, { agentId: agent, noCache: true });

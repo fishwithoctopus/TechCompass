@@ -46,6 +46,10 @@ test('later list survives restart, deduplicates and detects changed context', as
   await store.appendAnalysis({ id: 'a', contextsSnapshot: [{ projectId: 'p', name: 'Test', version: 1 }], result: { terms: [{ term: 'Bun' }], projects: [{ projectId: 'p', futureTrigger: '当启动速度成为瓶颈时' }] } });
   await store.saveDeferred('a', 'p'); await store.saveDeferred('a', 'p');
   assert.equal(new Store(dir).listDeferred().length, 1);
+  // Simulate a legacy MCP writer that only knows projects/contexts/settings.
+  const legacy = store.readData(); delete legacy.deferred;
+  fs.writeFileSync(store.dataPath, JSON.stringify(legacy));
+  assert.equal(new Store(dir).listDeferred().length, 1);
   assert.equal(store.listDeferred()[0].needsReview, false);
   await store.saveContext({ projectId: 'p', name: 'Test', focus: 'New focus' });
   assert.equal(store.listDeferred()[0].needsReview, true);

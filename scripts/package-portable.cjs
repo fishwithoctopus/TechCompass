@@ -5,8 +5,13 @@ const crypto=require('node:crypto');
 const root=path.resolve(__dirname,'..');
 const original=path.resolve(process.argv[2]);
 const out=path.resolve(process.argv[3]);
-if(fs.existsSync(out)) throw new Error('Choose a new output directory; existing output is never overwritten');
-fs.cpSync(original,out,{recursive:true});
+const asarOnly=process.argv.includes('--asar-only');
+if(asarOnly) {
+ if(!fs.existsSync(path.join(out,'TechCompass.exe'))) throw new Error('ASAR refresh needs an existing generated TechCompass package');
+} else {
+ if(fs.existsSync(out)) throw new Error('Choose a new output directory; existing output is never overwritten');
+ fs.cpSync(original,out,{recursive:true});
+}
 const buf=fs.readFileSync(path.join(original,'resources','app.asar'));
 const oldHeader=JSON.parse(buf.subarray(16,16+buf.readUInt32LE(12)));
 const oldStart=8+buf.readUInt32LE(4);
