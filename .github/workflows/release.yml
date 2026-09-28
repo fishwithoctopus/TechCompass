@@ -4,6 +4,11 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to rebuild
+        required: true
+        default: v0.4.10
 
 permissions:
   contents: write
@@ -13,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -24,24 +31,29 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 20
       - run: npm ci
-      - run: npm run dist:win
+      - run: npm run dist:win -- --publish never
         env:
           # 打包机在国内时可启用镜像
           ELECTRON_MIRROR: ${{ vars.ELECTRON_MIRROR }}
       - name: Upload artifacts
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
           files: |
             dist/TechCompass-Setup-*.exe
-            dist/techcompass-*.zip
+            dist/TechCompass-*-win.zip
+          fail_on_unmatched_files: true
           generate_release_notes: true
           draft: true
 
   build-macos:
+    if: github.event_name != 'workflow_dispatch'
     needs: test
     runs-on: macos-latest
     strategy:
