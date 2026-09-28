@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { startDaemon } from '../lib/server.js';
 import { defaultDataDir } from '../lib/store.js';
 import { cardShortcut } from '../lib/platform.js';
+import { cardBounds } from './window-bounds.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const IS_PACKAGED = app.isPackaged;
@@ -19,7 +20,6 @@ const ICON_PATH = IS_PACKAGED
 
 const WIN_W = 400;
 const WIN_H_EXPANDED = 580;
-const WIN_H_COLLAPSED = 54;
 const MARGIN = 14;
 
 let win = null;
@@ -93,6 +93,13 @@ function createWindow() {
   });
   win.once('ready-to-show', () => win.show());
   win.on('close', (e) => { if (!quitting) { e.preventDefault(); win.hide(); } });
+  win.on('minimize', (e) => { e.preventDefault(); win.hide(); });
+  win.webContents.on('context-menu', () => {
+    Menu.buildFromTemplate([
+      { label: '展开卡片', click: showWindow },
+      { label: '隐藏到托盘', click: () => win.hide() },
+    ]).popup({ window: win });
+  });
 }
 
 function createTray() {
@@ -113,7 +120,9 @@ function createTray() {
 
 function showWindow() {
   if (!win) return;
-  win.setBounds(bottomRightBounds(win.getBounds().height < 100 ? WIN_H_EXPANDED : win.getBounds().height));
+  const current = win.getBounds();
+  win.setBounds(cardBounds(current, screen.getDisplayMatching(current).workArea, false));
+  win.webContents.send('tc:collapse-state', false);
   win.show();
   win.focus();
 }
@@ -127,10 +136,9 @@ function toggleWindow() {
 ipcMain.on('tc:set-collapsed', (_e, collapsed) => {
   if (!win) return;
   const cur = win.getBounds();
-  const targetH = collapsed ? WIN_H_COLLAPSED : WIN_H_EXPANDED;
-  const bottom = cur.y + cur.height;
-  win.setBounds({ x: cur.x, y: Math.round(bottom - targetH), width: WIN_W, height: targetH });
+  win.setBounds(cardBounds(cur, screen.getDisplayMatching(cur).workArea, !!collapsed));
 });
+ipcMain.on('tc:hide', () => win?.hide());
 ipcMain.on('tc:set-theme', (_e, mode) => {
   if (['light', 'dark'].includes(mode)) win?.setBackgroundColor(mode === 'light' ? '#f7f8fa' : '#141518');
 });

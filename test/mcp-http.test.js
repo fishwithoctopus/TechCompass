@@ -38,4 +38,12 @@ test('HTTP MCP: authenticated SDK handshake, tools and shared project store; rej
   const saved = await client.callTool({ name: 'save_analysis', arguments: { content: 'unverified-test-term', result: { identityStatus: 'unverified', terms: [{ term: 'unverified-test-term', what: '尚未确认', solves: '尚未确认' }], projects: [], missing: ['请补充来源'] } } });
   assert.ok(!saved.isError);
   assert.equal(d.app.store.listAnalyses().length, 1);
+  const projectId = d.app.store.getContexts()[0].projectId;
+  const comparison = { status:'supported', baseline:'Example 1（测试基准）', changes:['测试变化'], tradeoffs:'速度未验证', upgradeAdvice:'先验证', sources:['https://example.com/release'] };
+  const modelSaved = await client.callTool({ name:'save_analysis', arguments:{ content:'Example 2（测试模型）', result:{
+    identityStatus:'identified', terms:[{term:'Example 2',kind:'model',what:'测试模型',solves:'测试用途',applicationExample:'例如用于文档问答',comparison}],
+    projects:[{projectId,relevance:'low',verdict:'ignore',reasoning:'当前项目不涉及模型调用',role:{fit:'无'},futureTrigger:'需要问答功能时'}],missing:[],
+  } } });
+  assert.ok(!modelSaved.isError, JSON.stringify(modelSaved));
+  assert.deepEqual(d.app.store.listAnalyses()[0].result.terms[0].comparison, comparison);
 });

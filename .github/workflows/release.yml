@@ -39,3 +39,30 @@ jobs:
             dist/TechCompass-Setup-*.exe
             dist/techcompass-*.zip
           generate_release_notes: true
+          draft: true
+
+  build-macos:
+    needs: test
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run dist:mac:${{ matrix.arch }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Upload macOS preview installers
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/TechCompass-*-mac-${{ matrix.arch }}.dmg
+            dist/TechCompass-*-mac-${{ matrix.arch }}.zip
+          fail_on_unmatched_files: true
+          draft: true

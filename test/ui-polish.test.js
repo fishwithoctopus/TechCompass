@@ -14,12 +14,20 @@ test('desktop UI: navigation, project correction, later list, game focus and can
   const dom = new JSDOM(fs.readFileSync(new URL('../ui/index.html', import.meta.url), 'utf8'), { url: `${base}/ui/?token=${token}`, runScripts: 'outside-only', pretendToBeVisual: true });
   t.after(() => { dom.window.document.getElementById('snake-panel').ontoggle = null; dom.window.close(); });
   const w = dom.window, $ = id => w.document.getElementById(id);
+  let restoreCollapse;
+  w.electronAPI = { setCollapsed() {}, onCollapseState(cb) { restoreCollapse = cb; } };
   w.fetch = (p, opts) => fetch(new URL(p, base), opts);
   w.HTMLCanvasElement.prototype.getContext = () => ({ clearRect() {}, fillRect() {} });
   w.eval(fs.readFileSync(new URL('../ui/theme.js', import.meta.url), 'utf8'));
   const snake = fs.readFileSync(new URL('../ui/snake.js', import.meta.url), 'utf8').replaceAll('export function', 'function');
   const app = fs.readFileSync(new URL('../ui/app.js', import.meta.url), 'utf8').replace("import { mountSnake } from './snake.js';", '');
   w.eval(snake + '\n' + app);
+  $('btn-collapse').click();
+  assert.ok(w.document.body.classList.contains('collapsed'));
+  assert.equal($('btn-collapse').getAttribute('aria-expanded'), 'false');
+  restoreCollapse(false);
+  assert.equal(w.document.body.classList.contains('collapsed'), false);
+  assert.equal($('btn-collapse').getAttribute('aria-expanded'), 'true');
   assert.equal(w.eval(`groupHistory([
     {id:'a',input:{type:'text',value:' Bun '}},
     {id:'b',input:{type:'text',value:'bun'}},
@@ -29,6 +37,30 @@ test('desktop UI: navigation, project correction, later list, game focus and can
   ]).length`), 4);
   assert.equal(w.eval(`groupHistory([{id:'a',input:{type:'link',value:'https://example.com/A'}},{id:'b',input:{type:'link',value:'https://example.com/a'}}]).length`), 2);
   await until(() => $('ob-folder'));
+  const matching = { id: 'matching', contextsSnapshot: [{projectId:'a',name:'相关项目'}, {projectId:'b',name:'无关项目'}], result: {
+    identityStatus: 'identified', terms: [{ term:'示例工具', what:'工具', solves:'处理文档', applicationExample:'例如，做文档检索时用于索引。' }], missing: [],
+    projects: [
+      { projectId:'a', relevance:'medium', verdict:'ignore', reasoning:'弱相关但当前无须采用', role:{fit:'辅助文档检索'}, futureTrigger:'文档增加时' },
+      { projectId:'b', relevance:'low', verdict:'ignore', reasoning:'无关联', role:{fit:'无'}, futureTrigger:'以后' },
+    ] } };
+  w.eval(`renderAnalysis(${JSON.stringify(matching)})`);
+  assert.equal(w.document.querySelectorAll('.proj-card').length, 1);
+  assert.ok($('proj-list').textContent.includes('相关项目'));
+  assert.equal($('proj-list').textContent.includes('无关项目'), false);
+  matching.result.projects[0].relevance = 'low';
+  w.eval(`renderAnalysis(${JSON.stringify(matching)})`);
+  assert.equal(w.document.querySelectorAll('.proj-card').length, 0);
+  assert.ok($('proj-list').textContent.includes('暂无匹配'));
+  assert.ok($('term-detail').textContent.includes('例如，做文档检索'));
+  matching.result.terms[0] = { term:'Example 2', kind:'model', what:'测试模型', solves:'测试任务', comparison:{status:'supported',baseline:'Example 1',changes:['引用更准确（测试数据）'],tradeoffs:'速度未核实',upgradeAdvice:'先小规模验证',sources:['https://example.com/release']} };
+  w.eval(`renderAnalysis(${JSON.stringify(matching)})`);
+  assert.ok($('term-detail').textContent.includes('和旧版有什么不同'));
+  assert.ok($('term-detail').textContent.includes('Example 1'));
+  assert.equal($('term-detail').querySelector('.comparison-sources a').href, 'https://example.com/release');
+  matching.result.terms[0].comparison.status = 'insufficient';
+  w.eval(`renderAnalysis(${JSON.stringify(matching)})`);
+  assert.ok($('term-detail').textContent.includes('暂时无法可靠比较'));
+  assert.equal($('term-detail').textContent.includes('引用更准确'), false);
   // Legacy records must not continue showing low/ignore after this UI update.
   const unknown = { id: 'legacy-unknown', contextsSnapshot: [{ projectId: 'p', name: '测试项目' }], research: { status: 'no_results', ambiguous: true, sources: [] }, result: { terms: [{ term: '虚构词', what: '无法确认', solves: '未知' }], projects: [{ projectId: 'p', relevance: 'low', verdict: 'ignore' }], missing: ['请补充链接'] } };
   w.eval(`renderAnalysis(${JSON.stringify(unknown)})`);
@@ -68,7 +100,7 @@ test('desktop UI: navigation, project correction, later list, game focus and can
   assert.equal($('pf-confirm-step').classList.contains('hidden'), false);
   assert.equal($('pf-goal').closest('details'), null);
   assert.equal($('pf-focus').closest('details'), null);
-  $('pf-focus').value = '先完善阅读体验'; $('pf-focus').dispatchEvent(new w.Event('input', { bubbles: true }));
+  $('pf-focus').value = '先完善阅读体验，之后调研 Tauri'; $('pf-focus').dispatchEvent(new w.Event('input', { bubbles: true }));
   $('pf-save').click();
   await until(() => !$('view-main').classList.contains('hidden') && $('ctx-strip').textContent.includes('sample-blog'));
   $('nav-projects').click();

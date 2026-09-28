@@ -13,6 +13,7 @@ import { createRequire } from 'node:module';
 import { Store, newId, defaultDataDir } from '../lib/store.js';
 import { scanProject, scanSummaryForPrompt, draftContextFromScan } from '../lib/scanner.js';
 import { normalizeInput } from '../lib/normalizer.js';
+import { MODEL_GUIDANCE } from '../lib/prompt.js';
 import {
   validateContext, sanitizeContext, sanitizeAnalysis, PROMPT_VERSION, RELEVANCE_LEVELS, VERDICTS, STAGES,
 } from '../lib/contracts.js';
@@ -92,10 +93,12 @@ server.tool(
         '6 missing': '信息不足时列出要问用户的问题（≤5 条），不要瞎猜。',
         '7 克制': '「当前可以忽略」是有价值的结论，不要把每条输入都变成学习任务。',
         '8 技术身份': 'identityStatus=identified/unverified/ambiguous。无法确认身份或存在歧义时 projects=[]，不得用 low/ignore 代替未知；missing 可请求拼写、链接或用途。没有项目时正常解释名词，projects=[]，无需索要项目信息。',
+        '9 模型比较': MODEL_GUIDANCE + '已确认模型 kind=model，必须返回 comparison，证据不足时 status=insufficient 且 changes=[]，不要编造升级结论。普通技术或身份未确认时 comparison=null。',
+        '10 展示筛选': '每个已确认名词提供 applicationExample，举一个具体假设应用场景。完整评估所有项目，界面只显示 high/medium，不显示 low，禁止为进入列表而抬高相关性。',
       },
       outputSchema: {
         identityStatus: 'identified|unverified|ambiguous',
-        terms: [{ term: 'string', what: 'string', solves: 'string' }],
+        terms: [{ term: 'string', what: 'string', solves: 'string', kind: 'technology|model', applicationExample: '具体假设应用场景', comparison: { status: 'supported|insufficient', baseline: '对比型号及选择理由', changes: ['具体变化及实际影响，最多3条'], tradeoffs: '代价和未核实维度', upgradeAdvice: '值得换与不必换的条件', sources: ['实际查阅的 http(s) URL，supported 时必填'] } }],
         projects: [{
           projectId: '必须与上面 projects 的 projectId 完全一致',
           relevance: 'high|medium|low', verdict: 'try_now|later|ignore',
@@ -118,7 +121,16 @@ server.tool(
     content: z.string().describe('用户原始输入（用于归档与缓存键）'),
     result: z.object({
       identityStatus: z.enum(['identified', 'unverified', 'ambiguous']).optional(),
-      terms: z.array(z.object({ term: z.string(), what: z.string(), solves: z.string() })).min(1).max(3),
+      terms: z.array(z.object({
+        term: z.string(), what: z.string(), solves: z.string(),
+        kind: z.enum(['technology', 'model']).optional(),
+        applicationExample: z.string().max(400).optional(),
+        comparison: z.object({
+          status: z.enum(['supported', 'insufficient']), baseline: z.string(),
+          changes: z.array(z.string()).max(3), tradeoffs: z.string(), upgradeAdvice: z.string(),
+          sources: z.array(z.string()).max(6),
+        }).nullable().optional(),
+      })).min(1).max(3),
       projects: z.array(z.object({
         projectId: z.string(),
         relevance: z.enum(RELEVANCE_LEVELS),

@@ -265,6 +265,14 @@ code { font-family: var(--mono); font-size: 12px; background: var(--panel-2); bo
 .term-card h3 { font-size: 13.5px; margin-bottom: 8px; }
 .term-card .lbl { color: var(--faint); font-size: 12px; }
 .term-card .what, .term-card .solves { font-size: 12.5px; color: var(--dim); }
+.model-comparison, .application-example { margin-top: 16px; font-size: 12.5px; overflow-wrap: anywhere; }
+.model-comparison h4, .application-example h4 { font-size: 13px; margin-bottom: 8px; }
+.model-comparison p, .application-example p { margin-top: 8px; }
+.model-comparison ul { padding-left: 16px; margin-top: 8px; }
+.model-comparison li + li { margin-top: 8px; }
+.comparison-sources { margin-top: 8px; }
+.comparison-sources a { color: var(--accent); text-underline-offset: 3px; }
+.no-project-match { color: var(--dim); margin: 12px 0; }
 
 .missing-panel {
   border: 1px solid var(--line); border-radius: 8px; padding: 12px 12px; margin-bottom: 8px;
@@ -444,12 +452,16 @@ code { font-family: var(--mono); font-size: 12px; background: var(--panel-2); bo
 /* 收起成胶囊 */
 body.collapsed #app > section, body.collapsed .foot { display: none; }
 body.collapsed .top-actions .icon-btn:not(#btn-collapse) { display: none; }
+body.collapsed .brand > span:not(.logo) { display: none; }
+body.collapsed .topbar { height: 48px; min-height: 48px; padding: 8px; gap: 8px; border-bottom: 0; }
+body.collapsed .brand { width: 32px; height: 32px; justify-content: center; -webkit-app-region: drag; }
+body.collapsed #btn-collapse { width: 32px; height: 32px; -webkit-app-region: no-drag; }
 
 /* 桌面小工具：不做手机适配，窄窗口给明确提示 */
 #mobile-notice { display: none; }
 @media (max-width: 380px) {
-  #app { display: none; }
-  #mobile-notice { display: flex; align-items: center; justify-content: center; height: 100vh; padding: 20px; }
+  body:not(.collapsed) #app { display: none; }
+  body:not(.collapsed) #mobile-notice { display: flex; align-items: center; justify-content: center; height: 100vh; padding: 20px; }
 }
 .mn-box {
   border: 1px solid var(--line-strong); border-radius: 8px; padding: 20px;

@@ -369,7 +369,7 @@ function renderAnalysis(analysis, feedback = []) {
   S.feedback = Object.fromEntries(feedback.map((f) => [f.projectId, f]));
   S.activeTerm = 0;
   const ctxById = Object.fromEntries((analysis.contextsSnapshot || []).map((c) => [c.projectId, c]));
-  const projs = [...(unresolved ? [] : result.projects)].sort((a, b) =>
+  const projs = (unresolved ? [] : result.projects).filter(p => ['high', 'medium'].includes(p.relevance)).sort((a, b) =>
     (Number(b.projectId === S.currentProject) - Number(a.projectId === S.currentProject)) || (VERDICT_ORDER[a.verdict] - VERDICT_ORDER[b.verdict]) || (REL_ORDER[a.relevance] - REL_ORDER[b.relevance]));
 
   const termsHtml = result.terms.length > 1
@@ -428,17 +428,30 @@ function renderAnalysis(analysis, feedback = []) {
     return;
   }
   if (unresolved) return;
+  if (!projs.length) list.innerHTML = '<p class="no-project-match">当前项目暂无匹配，不必为了它改变计划。</p>';
   projs.forEach((p) => list.appendChild(projCard(p, ctxById[p.projectId], false)));
 }
 
 function renderTermDetail() {
   const t = S.analysis.result.terms[S.activeTerm] || S.analysis.result.terms[0];
   if (!t) { $('term-detail').innerHTML = ''; return; }
+  const unresolved = identityUnresolved(S.analysis);
+  const c = !unresolved && t.kind === 'model' ? t.comparison : null;
+  const showExample = !unresolved && !(S.analysis.result.projects || []).some(p => ['high', 'medium'].includes(p.relevance));
   $('term-detail').innerHTML = `
     <div class="term-card">
       <h3>${esc(t.term)}</h3>
       <div class="what"><span class="lbl">是什么：</span>${esc(t.what)}</div>
       <div class="solves"><span class="lbl">解决什么：</span>${esc(t.solves)}</div>
+      ${c ? `<div class="model-comparison">
+        <h4>${c.status === 'supported' ? '和旧版有什么不同' : '暂时无法可靠比较'}</h4>
+        <p><span class="lbl">对比基准：</span>${esc(c.baseline)}</p>
+        ${c.status === 'supported' ? `<ul>${(c.changes || []).map(change => `<li>${esc(change)}</li>`).join('')}</ul>` : ''}
+        <p><span class="lbl">代价与限制：</span>${esc(c.tradeoffs)}</p>
+        <p><span class="lbl">要不要换：</span>${esc(c.upgradeAdvice)}</p>
+        ${(c.sources || []).length ? `<div class="comparison-sources">${c.sources.filter(url => { try { const u = new URL(url); return /^https?:$/.test(u.protocol) && !u.username && !u.password; } catch { return false; } }).map((url, i) => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">对比来源 ${i + 1}</a>`).join(' · ')}</div>` : ''}
+      </div>` : ''}
+      ${showExample ? `<div class="application-example"><h4>什么场景会用到</h4><p>${esc(t.applicationExample || `用途参考：${t.solves}。本次结果未提供具体场景，可重新分析。`)}</p></div>` : ''}
     </div>`;
 }
 
@@ -930,12 +943,18 @@ $('copy-register-command').onclick = async () => {
 $('btn-collapse').onclick = toggleCollapse;
 
 function toggleCollapse() {
+  setCollapsed(!document.body.classList.contains('collapsed'));
+}
+function setCollapsed(collapsed) {
   snake.pause();
-  document.body.classList.toggle('collapsed');
-  const collapsed = document.body.classList.contains('collapsed');
+  document.body.classList.toggle('collapsed', collapsed);
   $('btn-collapse').innerHTML = icon(collapsed ? 'plus' : 'minus');
+  $('btn-collapse').title = collapsed ? '展开卡片（右键可隐藏到托盘）' : '收起为小浮条';
+  $('btn-collapse').setAttribute('aria-label', collapsed ? '展开卡片' : '收起为小浮条');
+  $('btn-collapse').setAttribute('aria-expanded', String(!collapsed));
   window.electronAPI?.setCollapsed(collapsed);
 }
+window.electronAPI?.onCollapseState?.(collapsed => setCollapsed(collapsed));
 // Electron 托盘 / 快捷键触发的收起展开
 window.electronAPI?.onCollapseToggle?.(() => toggleCollapse());
 
